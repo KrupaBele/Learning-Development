@@ -33,6 +33,7 @@ interface SubChapter {
   description: string;
   content: ChapterContent;
   order: number;
+  template?: string;
 }
 
 interface Question {
@@ -585,7 +586,9 @@ const TrainingDetails = () => {
                 {selectedSubChapter ? (
                   <ChapterContent
                     layout={mapTemplateNameToId(
-                      selectedChapter?.template || "layout1",
+                      selectedSubChapter.template ||
+                        selectedChapter?.template ||
+                        "layout1",
                     )}
                     title={selectedSubChapter.title}
                     content={selectedSubChapter.description}
