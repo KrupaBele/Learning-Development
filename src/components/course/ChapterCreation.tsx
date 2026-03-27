@@ -952,7 +952,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                             {/* Main Chapter */}
                             <div
                               {...provided.dragHandleProps}
-                              className={`bg-white dark:bg-dark-800 p-4 rounded-lg border border-gray-200 dark:border-dark-700 flex items-center justify-between`}
+                              className={`bg-white dark:bg-dark-800 p-4 rounded-lg border border-gray-200 dark:border-dark-700 flex items-start justify-between`}
                             >
                               <div className="flex items-center gap-3 flex-1 overflow-hidden">
                                 <GripVertical className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -966,7 +966,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                                 )}
 
                                 <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-gray-900 dark:text-white truncate">
+                                  <h4 className="font-medium text-gray-900 dark:text-white whitespace-normal break-words">
                                     {chapter.title}
                                   </h4>
                                   <p className="text-sm text-gray-500">
@@ -976,7 +976,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                               </div>
 
                               {/* Three-dot menu */}
-                              <div className="relative">
+                              <div className="relative flex-shrink-0 ml-2">
                                 <button
                                   onClick={() => toggleDropdown(chapter.id)}
                                   className="p-2 text-gray-400 hover:text-gray-600"
@@ -1054,7 +1054,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                                             <div
                                               ref={subProvided.innerRef}
                                               {...subProvided.draggableProps}
-                                              className={`bg-gray-50 dark:bg-dark-700 p-3 rounded-lg border border-gray-200 dark:border-dark-600 flex items-center justify-between ${
+                                              className={`bg-gray-50 dark:bg-dark-700 p-3 rounded-lg border border-gray-200 dark:border-dark-600 flex items-start justify-between ${
                                                 subSnapshot.isDragging
                                                   ? "shadow-md bg-blue-50"
                                                   : ""
@@ -1076,7 +1076,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                                                 ) : null}
 
                                                 <div className="flex-1 min-w-0">
-                                                  <h4 className="font-medium text-gray-800 dark:text-gray-200 truncate text-sm">
+                                                  <h4 className="font-medium text-gray-800 dark:text-gray-200 whitespace-normal break-words text-sm">
                                                     {subChapter.title}
                                                   </h4>
                                                   {subChapter.duration && (
@@ -1087,7 +1087,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                                                 </div>
                                               </div>
 
-                                              <div className="flex space-x-1">
+                                              <div className="flex space-x-1 flex-shrink-0 ml-2">
                                                 <button
                                                   onClick={() =>
                                                     handleEditChapter(
