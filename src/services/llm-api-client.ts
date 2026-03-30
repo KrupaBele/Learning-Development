@@ -33,6 +33,7 @@ export class LLMClient {
           prompt,
           system_message: systemMessage,
           model_id: this.modelId,
+          user_id: "Learning and Development",
           max_tokens: maxTokens,
         }),
       });
