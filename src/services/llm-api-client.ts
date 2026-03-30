@@ -6,7 +6,7 @@ export class LLMClient {
   constructor() {
     this.apiUrl = import.meta.env.VITE_LLM_URL;
     this.apiKey = import.meta.env.VITE_API_KEY;
-    this.modelId = "openai/gpt-4o-mini";
+    this.modelId = "openai/gpt-5.4-nano";
   }
 
   /**
@@ -33,8 +33,6 @@ export class LLMClient {
           prompt,
           system_message: systemMessage,
           model_id: this.modelId,
-          conversation_id: "default",
-          user_id: "default",
           max_tokens: maxTokens,
         }),
       });
