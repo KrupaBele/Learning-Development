@@ -6,24 +6,26 @@ interface Module {
   _id: string;
   title: string;
   isMandatory?: boolean;
+  status?: string;
 }
 
-interface AssignModuleModalProps {
+interface BulkAssignModalProps {
   isOpen: boolean;
   onClose: () => void;
-  employeeEmail: string;
-  onAssign: (moduleIds: string[]) => void;
+  employeeIds: string[];
+  onSuccess: () => void;
 }
 
-const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
+const BulkAssignModal: React.FC<BulkAssignModalProps> = ({
   isOpen,
   onClose,
-  employeeEmail,
-  onAssign,
+  employeeIds,
+  onSuccess,
 }) => {
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -40,6 +42,7 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
 
     if (isOpen) {
       fetchModules();
+      setSelectedModules([]);
     }
   }, [isOpen]);
 
@@ -47,26 +50,46 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
     setSelectedModules((prev) =>
       prev.includes(moduleId)
         ? prev.filter((id) => id !== moduleId)
-        : [...prev, moduleId]
+        : [...prev, moduleId],
     );
   };
 
-  const handleAssign = () => {
-    onAssign(selectedModules);
-    setSelectedModules([]);
-    onClose();
+  const handleAssign = async () => {
+    if (selectedModules.length === 0 || employeeIds.length === 0) return;
+    try {
+      setSubmitting(true);
+      await api.post("/api/manager/employees/assign-courses", {
+        employeeIds,
+        courseIds: selectedModules,
+      });
+      onSuccess();
+      onClose();
+    } catch (error: unknown) {
+      console.error("Error bulk assigning:", error);
+      const err = error as { response?: { data?: { message?: string } } };
+      alert(err.response?.data?.message || "Failed to assign courses");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-dark-800 rounded-lg p-6 w-full max-w-2xl">
+      <div className="bg-white dark:bg-dark-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            Assign Modules to {employeeEmail}
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold dark:text-white">
+              Bulk assign courses
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {employeeIds.length} employee
+              {employeeIds.length !== 1 ? "s" : ""} selected
+            </p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-500 dark:text-white hover:text-gray-700"
           >
@@ -75,9 +98,9 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
         </div>
 
         {loading ? (
-          <div className="text-center py-4">Loading modules...</div>
+          <div className="text-center py-4 dark:text-white">Loading modules...</div>
         ) : (
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto flex-1">
             {modules.map((module) => (
               <div
                 key={module._id}
@@ -85,13 +108,13 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
               >
                 <input
                   type="checkbox"
-                  id={module._id}
+                  id={`bulk-${module._id}`}
                   checked={selectedModules.includes(module._id)}
                   onChange={() => handleCheckboxChange(module._id)}
                   className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:bg-white dark:border-gray-500"
                 />
                 <label
-                  htmlFor={module._id}
+                  htmlFor={`bulk-${module._id}`}
                   className="ml-3 dark:text-white block text-sm font-medium text-gray-700"
                 >
                   {module.title}
@@ -108,21 +131,29 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
 
         <div className="mt-6 flex justify-end space-x-3">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 dark:text-white py-2 text-sm text-gray-700 hover:text-gray-900"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleAssign}
-            disabled={selectedModules.length === 0}
+            disabled={
+              selectedModules.length === 0 ||
+              employeeIds.length === 0 ||
+              submitting
+            }
             className={`px-4 py-2 text-sm text-white rounded ${
-              selectedModules.length === 0
+              selectedModules.length === 0 ||
+              employeeIds.length === 0 ||
+              submitting
                 ? "bg-blue-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            Assign Selected Modules
+            {submitting ? "Assigning…" : "Assign to selected employees"}
           </button>
         </div>
       </div>
@@ -130,4 +161,4 @@ const AssignModuleModal: React.FC<AssignModuleModalProps> = ({
   );
 };
 
-export default AssignModuleModal;
+export default BulkAssignModal;

@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import Confetti from "react-confetti";
-import TemplateRenderer from "./Layout";
 import DOMPurify from "dompurify";
 import parse from "html-react-parser";
 
@@ -52,7 +50,12 @@ interface Chapter {
   duration: string;
   template: string;
   subChapters?: SubChapter[];
+  order?: number;
 }
+
+type SyllabusRow =
+  | { kind: "chapter"; order: number; data: Chapter }
+  | { kind: "question"; order: number; data: Question & { title?: string } };
 
 const TrainingDetails = () => {
   const navigate = useNavigate();
@@ -83,26 +86,63 @@ const TrainingDetails = () => {
     itemType: string;
     data: string;
   } | null>(null);
+  /** Next node after current question from /api/section (may be chapter or question). */
+  const [nextAfterQuestion, setNextAfterQuestion] = useState<{
+    itemType: string;
+    data: string;
+  } | null>(null);
 
   const [question, setQuestion] = useState<Question | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>([]);
   console.log(selectedAnswers);
 
-  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(
-    null,
-  );
   const [nextQuestionId, setNextQuestionId] = useState<string | null>(null);
   const [prevQuestionId, setPrevQuestionId] = useState<string | null>(null);
 
-  const [userAnswer, setUserAnswer] = useState<string | null>(null); // Track the selected answer
   const [isPopupVisible, setIsPopupVisible] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
-  const [confettiKey, setConfettiKey] = useState(0); // Unique key for Confetti
 
   const [isAnswerCorrect, setIsAnswerCorrect] = useState(false);
-  const isLastQuestion = nextQuestionId === null;
+  /** More quiz or chapter follows; `nextQuestionId` is only set when the next node is a question. */
+  const hasMoreQuizOrChapterAfter =
+    nextQuestionId != null ||
+    nextAfterQuestion?.itemType === "chapter" ||
+    nextAfterQuestion?.itemType === "question";
+  const isLastQuestion = !hasMoreQuizOrChapterAfter;
 
   const [parsedDescription, setParsedDescription] = useState("");
+
+  const syllabusItems = useMemo((): SyllabusRow[] => {
+    if (!trainingDetails) return [];
+    const chapters: Chapter[] = trainingDetails.chapters || [];
+    const questions: (Question & { title?: string; order?: number })[] =
+      trainingDetails.questions || [];
+    const rows: SyllabusRow[] = [
+      ...chapters.map((c) => ({
+        kind: "chapter" as const,
+        order: typeof c.order === "number" ? c.order : 9999,
+        data: c,
+      })),
+      ...questions.map((q) => ({
+        kind: "question" as const,
+        order: typeof q.order === "number" ? q.order : 9999,
+        data: q,
+      })),
+    ];
+    return rows.sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      if (a.kind === b.kind) return 0;
+      return a.kind === "chapter" ? -1 : 1;
+    });
+  }, [trainingDetails]);
+
+  const openQuestionFromSyllabus = (questionId: string) => {
+    setActiveTab("content");
+    setQuestionPanel("overview");
+    setSelectedSubChapter(null);
+    setSelectedChapter(null);
+    fetchQuestion(questionId);
+  };
 
   const mapTemplateNameToId = (templateName: string): string => {
     const layout = chapterLayouts.find((l) => l.name === templateName);
@@ -217,12 +257,12 @@ const TrainingDetails = () => {
         },
       )
       .then((response) => {
-        // Assuming the API response contains the question data you need
+        const ni = response.data.nextItem;
+        setNextAfterQuestion(ni || null);
         setQuestion(response.data.currentItem);
-        setCurrentQuestionId(response.data.currentItem._id);
-        setNextQuestionId(response.data.nextItem?.data || null);
+        setNextQuestionId(ni?.itemType === "question" ? ni.data : null);
         setPrevQuestionId(response.data.prevItem?.data || null);
-        setQuestionPanel("overview"); // Assuming this is to control the display of the question panel
+        setQuestionPanel("overview");
       })
       .catch((error) => {
         console.error("Error fetching question:", error);
@@ -269,10 +309,15 @@ const TrainingDetails = () => {
   };
 
   const handleNextQuestion = () => {
-    setSelectedAnswers([]); // Clear before moving to the next question
+    setSelectedAnswers([]);
 
     if (nextQuestionId) {
       fetchQuestion(nextQuestionId);
+      return;
+    }
+    if (nextAfterQuestion?.itemType === "chapter") {
+      setQuestionPanel("content");
+      handleChapterSelect(String(nextAfterQuestion.data));
     }
   };
   const handlePrevQuestion = () => {
@@ -300,24 +345,19 @@ const TrainingDetails = () => {
     if (!selectedAnswers.length || !question) return;
 
     setShowConfetti(false);
-    setTimeout(() => {
-      // Check if the answer is correct
-      const isCorrect =
-        selectedAnswers.length === question.answer.length &&
-        selectedAnswers.every((ans) => question.answer.includes(ans));
+    // Show feedback immediately (even if API fails),
+    // but do not auto-advance on wrong answers.
+    const localIsCorrect =
+      selectedAnswers.length === question.answer.length &&
+      selectedAnswers.every((ans) => question.answer.includes(ans));
+    setIsAnswerCorrect(localIsCorrect);
+    setIsPopupVisible(true);
 
-      setIsAnswerCorrect(isCorrect);
-      setIsPopupVisible(true);
+    if (localIsCorrect) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+    }
 
-      if (isCorrect) {
-        // Update key to force re-render of Confetti
-        setConfettiKey((prevKey) => prevKey + 1);
-        setShowConfetti(true);
-
-        // Stop confetti after 3 seconds
-        setTimeout(() => setShowConfetti(false), 3000);
-      }
-    }, 100); // Small delay to reset confetti
     // Post the selected answer to check if it's correct
     axios
       .post(
@@ -334,18 +374,26 @@ const TrainingDetails = () => {
         },
       )
       .then((response) => {
-        const isCorrect = response.data.correct;
-        console.log(isCorrect);
-
-        // If there's a next question, load it after a short delay
-        if (response.data.nextItem) {
-          setTimeout(() => {
-            fetchQuestion(response.data.nextItem.data); // Fetch next question
-            setIsPopupVisible(false); // Hide popup when moving to the next question
-          }, 2000); // 2 seconds delay before moving to the next question
+        // Some backends only mark completion and don't return correctness.
+        // Only trust the server if it explicitly returns a boolean `correct`.
+        const serverCorrect = response?.data?.correct;
+        if (
+          typeof serverCorrect === "boolean" &&
+          serverCorrect !== localIsCorrect
+        ) {
+          setIsAnswerCorrect(serverCorrect);
+          if (serverCorrect) {
+            setShowConfetti(true);
+            setTimeout(() => setShowConfetti(false), 3000);
+          } else {
+            setShowConfetti(false);
+          }
         }
       })
-      .catch((error) => console.error("Error submitting answer:", error));
+      .catch((error) => {
+        console.error("Error submitting answer:", error);
+        // Keep the popup based on local result; no navigation.
+      });
   };
 
   const handleOptionChange = (option: string) => {
@@ -370,6 +418,30 @@ const TrainingDetails = () => {
     return currentIndex + 1 < trainingDetails.chapters.length
       ? trainingDetails.chapters[currentIndex + 1]
       : null;
+  };
+
+  /** Prefer section API order (quiz between chapters); fallback to next in chapter list. */
+  const goToNextAfterChapterContent = () => {
+    if (nextItem?.itemType === "question") {
+      setActiveTab("content");
+      setQuestionPanel("overview");
+      fetchQuestion(String(nextItem.data));
+      return;
+    }
+    if (nextItem?.itemType === "chapter") {
+      handleChapterSelect(String(nextItem.data));
+      return;
+    }
+    const nc = getNextChapter();
+    if (nc) {
+      handleChapterSelect(nc._id);
+      return;
+    }
+    if (nextItem?.data) {
+      setActiveTab("content");
+      setQuestionPanel("overview");
+      fetchQuestion(String(nextItem.data));
+    }
   };
 
   const getPreviousChapter = () => {
@@ -472,106 +544,133 @@ const TrainingDetails = () => {
                     Course Content
                   </h2>
                   <div className="space-y-4">
-                    {trainingDetails.chapters.map((chapter: Chapter) => (
-                      <div key={chapter._id} className="space-y-2">
-                        <div
-                          className="bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition cursor-pointer overflow-hidden"
-                          onClick={() => handleChapterSelect(chapter._id)}
-                        >
-                          <div className="p-4 flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              {chapter.isCompleted === true ? (
-                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                              ) : chapter.isCompleted === false ? (
-                                <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                              ) : (
-                                <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                              )}
-                              <div>
-                                <h3 className="font-medium text-gray-900 dark:text-white">
-                                  {chapter.title}
-                                </h3>
-                                <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
-                                  {parse(
-                                    DOMPurify.sanitize(chapter.description),
-                                  )}
+                    {syllabusItems.map((item) =>
+                      item.kind === "question" ? (
+                        <div key={`q-${item.data._id}`} className="space-y-2">
+                          <div
+                            className="bg-amber-50 dark:bg-amber-950/40 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition cursor-pointer overflow-hidden border border-amber-200/80 dark:border-amber-800"
+                            onClick={() =>
+                              openQuestionFromSyllabus(item.data._id)
+                            }
+                          >
+                            <div className="p-4 flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                <PlayCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                                <div>
+                                  <h3 className="font-medium text-gray-900 dark:text-white">
+                                    Quiz:{" "}
+                                    {(item.data as { title?: string }).title ||
+                                      "Question"}
+                                  </h3>
+                                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                    Tap to open this quiz step
+                                  </p>
                                 </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-4 ml-4">
-                              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {chapter.duration}
-                              </span>
-
-                              {chapter.isCompleted === true && (
-                                <span className="px-2.5 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs font-medium whitespace-nowrap">
-                                  Completed
-                                </span>
-                              )}
-                              {chapter.isCompleted === false && (
-                                <span className="px-2.5 py-1 bg-green-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full text-xs font-medium whitespace-nowrap">
-                                  Pending
-                                </span>
-                              )}
-                              <div className="w-3">
-                                {" "}
-                                {chapter.subChapters &&
-                                  chapter.subChapters.length > 0 && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleChapterExpansion(chapter._id);
-                                      }}
-                                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                    >
-                                      <ChevronRight
-                                        className={`w-5 h-5 transition-transform ${
-                                          isChapterExpanded(chapter._id)
-                                            ? "transform rotate-90"
-                                            : ""
-                                        }`}
-                                      />
-                                    </button>
-                                  )}
                               </div>
                             </div>
                           </div>
                         </div>
+                      ) : (
+                        <div key={item.data._id} className="space-y-2">
+                          <div
+                            className="bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition cursor-pointer overflow-hidden"
+                            onClick={() => handleChapterSelect(item.data._id)}
+                          >
+                            <div className="p-4 flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                {item.data.isCompleted === true ? (
+                                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                ) : item.data.isCompleted === false ? (
+                                  <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                ) : (
+                                  <Clock className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                )}
+                                <div>
+                                  <h3 className="font-medium text-gray-900 dark:text-white">
+                                    {item.data.title}
+                                  </h3>
+                                  <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                                    {parse(
+                                      DOMPurify.sanitize(item.data.description),
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-4 ml-4">
+                                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                  {item.data.duration}
+                                </span>
 
-                        {/* Render subchapters if they exist */}
-                        {chapter.subChapters &&
-                          chapter.subChapters.length > 0 &&
-                          isChapterExpanded(chapter._id) && (
-                            <div className="ml-12 space-y-2">
-                              {chapter.subChapters.map((subChapter) => (
-                                <div
-                                  key={subChapter._id}
-                                  className="bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition cursor-pointer overflow-hidden"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleChapterSelect(chapter._id);
-                                    handleSubChapterSelect(subChapter);
-                                  }}
-                                >
-                                  <div className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                      <PlayCircle className="w-5 h-5 text-blue-300 flex-shrink-0" />
-                                      <div>
-                                        <h3 className="font-medium text-gray-900 dark:text-white">
-                                          {subChapter.title}
-                                        </h3>
-                                        <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
-                                          {subChapter.description}
+                                {item.data.isCompleted === true && (
+                                  <span className="px-2.5 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs font-medium whitespace-nowrap">
+                                    Completed
+                                  </span>
+                                )}
+                                {item.data.isCompleted === false && (
+                                  <span className="px-2.5 py-1 bg-green-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full text-xs font-medium whitespace-nowrap">
+                                    Pending
+                                  </span>
+                                )}
+                                <div className="w-3">
+                                  {" "}
+                                  {item.data.subChapters &&
+                                    item.data.subChapters.length > 0 && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleChapterExpansion(item.data._id);
+                                        }}
+                                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                      >
+                                        <ChevronRight
+                                          className={`w-5 h-5 transition-transform ${
+                                            isChapterExpanded(item.data._id)
+                                              ? "transform rotate-90"
+                                              : ""
+                                          }`}
+                                        />
+                                      </button>
+                                    )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Render subchapters if they exist */}
+                          {item.data.subChapters &&
+                            item.data.subChapters.length > 0 &&
+                            isChapterExpanded(item.data._id) && (
+                              <div className="ml-12 space-y-2">
+                                {item.data.subChapters.map((subChapter) => (
+                                  <div
+                                    key={subChapter._id}
+                                    className="bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition cursor-pointer overflow-hidden"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleChapterSelect(item.data._id);
+                                      handleSubChapterSelect(subChapter);
+                                    }}
+                                  >
+                                    <div className="p-4 flex items-center justify-between">
+                                      <div className="flex items-center space-x-4">
+                                        <PlayCircle className="w-5 h-5 text-blue-300 flex-shrink-0" />
+                                        <div>
+                                          <h3 className="font-medium text-gray-900 dark:text-white">
+                                            {subChapter.title}
+                                          </h3>
+                                          <div className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                                            {subChapter.description}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-                    ))}
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>
@@ -674,31 +773,24 @@ const TrainingDetails = () => {
                             </button>
                           ) : (
                             <>
-                              {getNextChapter() ? (
+                              {nextItem?.itemType === "question" ||
+                              getNextChapter() ||
+                              nextItem?.data ? (
                                 <button
-                                  onClick={() =>
-                                    getNextChapter() &&
-                                    handleChapterSelect(
-                                      getNextChapter()?._id || "",
-                                    )
-                                  }
-                                  className="flex items-center space-x-2 text-gray-500 dark:text-gray-300"
+                                  type="button"
+                                  onClick={goToNextAfterChapterContent}
+                                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600 text-gray-500 dark:text-gray-100"
                                 >
-                                  <span>Next Chapter</span>
+                                  <span>
+                                    {nextItem?.itemType === "question"
+                                      ? "Next: Quiz"
+                                      : getNextChapter()
+                                        ? "Next Chapter"
+                                        : "Continue"}
+                                  </span>
                                   <ChevronNextIcon className="w-5 h-5" />
                                 </button>
-                              ) : (
-                                <motion.button
-                                  onClick={() =>
-                                    fetchQuestion(nextItem?.data || "")
-                                  }
-                                  whileHover={{ rotate: [0, 11, -11, 0] }}
-                                  whileTap={{ scale: 0.9 }}
-                                  className="relative flex items-center space-x-2 px-6 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600 transition-all shadow-lg"
-                                >
-                                  <span>Start Quiz</span>
-                                </motion.button>
-                              )}
+                              ) : null}
                             </>
                           )}
                         </>
@@ -719,31 +811,24 @@ const TrainingDetails = () => {
                             </button>
                           ) : (
                             <>
-                              {getNextChapter() ? (
+                              {nextItem?.itemType === "question" ||
+                              getNextChapter() ||
+                              nextItem?.data ? (
                                 <button
-                                  onClick={() =>
-                                    getNextChapter() &&
-                                    handleChapterSelect(
-                                      getNextChapter()?._id || "",
-                                    )
-                                  }
-                                  className="flex items-center space-x-2 text-gray-500 dark:text-gray-300"
+                                  type="button"
+                                  onClick={goToNextAfterChapterContent}
+                                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600"
                                 >
-                                  <span>Next Chapter</span>
+                                  <span>
+                                    {nextItem?.itemType === "question"
+                                      ? "Next: Quiz"
+                                      : getNextChapter()
+                                        ? "Next Chapter"
+                                        : "Continue"}
+                                  </span>
                                   <ChevronNextIcon className="w-5 h-5" />
                                 </button>
-                              ) : (
-                                <motion.button
-                                  onClick={() =>
-                                    fetchQuestion(nextItem?.data || "")
-                                  }
-                                  whileHover={{ rotate: [0, 11, -11, 0] }}
-                                  whileTap={{ scale: 0.9 }}
-                                  className="relative flex items-center space-x-2 px-6 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600 transition-all shadow-lg"
-                                >
-                                  <span>Start Quiz</span>
-                                </motion.button>
-                              )}
+                              ) : null}
                             </>
                           )}
                         </>
@@ -869,7 +954,9 @@ const TrainingDetails = () => {
                               onClick={handleNextQuestionAndClosePopup}
                               className="mt-4 px-5 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition"
                             >
-                              Next Question
+                              {nextAfterQuestion?.itemType === "chapter"
+                                ? "Continue to next chapter"
+                                : "Next question"}
                             </button>
                           )}
                         </div>

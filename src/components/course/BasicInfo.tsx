@@ -568,6 +568,28 @@ const BasicInfo = ({ data, onUpdate }: any) => {
         </div>
       </div>
 
+      <div className="mt-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="isMandatory"
+            checked={!!data.isMandatory}
+            onChange={(e) => onUpdate({ isMandatory: e.target.checked })}
+            className="h-4 w-4 mt-1 rounded border-gray-300 text-blue-600"
+          />
+          <span>
+            <span className="block text-md font-medium text-gray-700 dark:text-gray-300">
+              Mandatory for all employees
+            </span>
+            <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
+              After an admin publishes this course, it is added to every
+              employee automatically. Managers do not spend credits for mandatory
+              courses.
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div>
         <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
           Course Image

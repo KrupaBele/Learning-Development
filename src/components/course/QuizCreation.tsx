@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, Sparkles, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { generateQuizQuestionsFromChapters } from '../../utils/aiQuizGenerator';
 
-const QuizCreation = ({ quizzes, onUpdate }) => {
+type QuizCreationProps = {
+  quizzes: Record<string, unknown>[];
+  chapters?: Record<string, unknown>[];
+  onUpdate: (quizzes: Record<string, unknown>[]) => void;
+};
+
+const QuizCreation = ({
+  quizzes,
+  chapters = [],
+  onUpdate,
+}: QuizCreationProps) => {
   const formattedQuizzes = quizzes.map(quiz => ({
     ...quiz,
     correctAnswers: quiz.correctAnswers || quiz.answer.map(ans => String(ans)), // Convert answer to correctAnswers
@@ -16,6 +28,48 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
     correctAnswers: [],
     type: 'SCQ'
   });
+
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+
+  const runAiGenerate = async (mode: 'replace' | 'append') => {
+    if (!chapters.length) {
+      toast.error('Add chapters first — the AI uses chapter text to build questions.');
+      return;
+    }
+    if (
+      mode === 'replace' &&
+      quizList.length > 0 &&
+      !window.confirm(
+        'Replace all existing questions with new AI-generated ones? This cannot be undone from here (you can still cancel without saving the course).',
+      )
+    ) {
+      return;
+    }
+    setIsGeneratingQuiz(true);
+    try {
+      const generated = await generateQuizQuestionsFromChapters(
+        chapters,
+        aiQuestionCount,
+      );
+      const next =
+        mode === 'replace'
+          ? generated
+          : [...quizList, ...generated];
+      setQuizList(next);
+      onUpdate(next);
+      toast.success(
+        mode === 'replace'
+          ? `Replaced with ${generated.length} AI question(s). Review and edit below.`
+          : `Added ${generated.length} AI question(s). You can still add your own.`,
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Generation failed';
+      toast.error(msg);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
 
   useEffect(() => {
     setQuizList(formattedQuizzes);
@@ -36,8 +90,10 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
     }
   };
 
-  const handleRemoveQuestion = (id) => {
-    const updatedQuizzes = quizList.filter(quiz => quiz._id !== id);
+  const handleRemoveQuestion = (id: string | undefined) => {
+    const updatedQuizzes = quizList.filter(
+      (quiz) => String(quiz._id ?? quiz.id) !== String(id),
+    );
     setQuizList(updatedQuizzes);
     onUpdate(updatedQuizzes);
   };
@@ -65,6 +121,60 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
 
   return (
     <div className="space-y-6">
+      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 border border-indigo-100 dark:border-indigo-900/50 p-6 rounded-lg">
+        <div className="flex items-start gap-3 mb-4">
+          <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Quiz source
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Generate draft questions from your chapter text, or build everything yourself — you can mix both. AI questions are tagged with the chapter they came from so you can place them after the right chapter on the Course order tab.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <span>How many questions</span>
+            <select
+              value={aiQuestionCount}
+              onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+              disabled={isGeneratingQuiz}
+              className="px-3 py-1.5 border border-gray-300 dark:border-dark-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white text-sm"
+            >
+              <option value={3}>3</option>
+              <option value={5}>5</option>
+              <option value={8}>8</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => runAiGenerate('replace')}
+            disabled={isGeneratingQuiz || !chapters.length}
+            className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGeneratingQuiz ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 mr-2" />
+            )}
+            Generate from chapters (replace all)
+          </button>
+          <button
+            type="button"
+            onClick={() => runAiGenerate('append')}
+            disabled={isGeneratingQuiz || !chapters.length}
+            className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-indigo-700 dark:text-indigo-300 bg-white dark:bg-dark-800 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Add AI questions to list
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">
+          Requires <code className="text-gray-600 dark:text-gray-400">VITE_LLM_URL</code> and{' '}
+          <code className="text-gray-600 dark:text-gray-400">VITE_API_KEY</code> in your env.
+        </p>
+      </div>
+
       <div className="bg-gray-50 dark:bg-dark-800 p-6 rounded-lg">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New Question</h3>
         <div className="space-y-4">
@@ -152,7 +262,7 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
 
       <div className="space-y-4">
         {quizList.map((quiz) => (
-          <div key={quiz.id} className="bg-white dark:bg-dark-800 p-6 rounded-lg border border-gray-200 dark:border-dark-700 shadow-sm">
+          <div key={String(quiz._id ?? quiz.id)} className="bg-white dark:bg-dark-800 p-6 rounded-lg border border-gray-200 dark:border-dark-700 shadow-sm">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{quiz.title}</h3>
@@ -160,8 +270,16 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {quiz.type === 'SCQ' ? 'Single Choice' : 'Multiple Choice'}
                 </span>
+                {String(quiz.sourceChapterTitle ?? "").trim() ? (
+                  <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200/90 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 rounded-md px-2.5 py-1.5 inline-block">
+                    Based on chapter:{' '}
+                    <span className="text-amber-950 dark:text-amber-100">
+                      {String(quiz.sourceChapterTitle).trim()}
+                    </span>
+                  </p>
+                ) : null}
               </div>
-              <button onClick={() => handleRemoveQuestion(quiz._id)} className="p-2 text-gray-400 hover:text-red-500 transition">
+              <button onClick={() => handleRemoveQuestion(quiz._id ?? quiz.id)} className="p-2 text-gray-400 hover:text-red-500 transition">
                 <Trash2 className="w-5 h-5" />
               </button>
             </div>
@@ -171,12 +289,14 @@ const QuizCreation = ({ quizzes, onUpdate }) => {
                   key={index}
                   className={`p-3 rounded-lg flex items-center space-x-3 
                     ${
-                      quiz.correctAnswers?.includes(String(option)) || quiz.answer?.includes(String(option))
+                      (quiz.correctAnswers?.includes(String(option)) ||
+                        quiz.answer?.includes(String(option)))
                         ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
                         : 'bg-gray-50 dark:bg-dark-700 border border-gray-200 dark:border-dark-700'
                     }`}
                 >
-                  {quiz.correctAnswers.includes(String(option)) || quiz.answer?.includes(String(option)) ? <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0"/> : null}
+                  {(quiz.correctAnswers?.includes(String(option)) ||
+                    quiz.answer?.includes(String(option))) ? <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0"/> : null}
                   <span className="text-gray-900 dark:text-white">{option}</span>
                 </div>
               ))}

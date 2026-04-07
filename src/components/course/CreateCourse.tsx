@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import BasicInfo from "./BasicInfo";
@@ -13,6 +13,14 @@ import {
 } from "../../utils/api.js";
 import { FaCheckCircle } from "react-icons/fa";
 import { ChapterLayoutSelector, ChapterPreview } from "./ChapterLayouts";
+import CurriculumOrderEditor from "./CurriculumOrderEditor";
+import {
+  buildSequenceFromApi,
+  chapterKey,
+  quizKey,
+  reconcileSequence,
+  type CurriculumStep,
+} from "../../utils/curriculumOrder";
 
 const CreateCourse = () => {
   const { courseId } = useParams();
@@ -24,10 +32,19 @@ const CreateCourse = () => {
       description: "",
       image: "",
       category: "",
+      isMandatory: false,
     },
-    chapters: [],
-    quizzes: [],
+    chapters: [] as Record<string, unknown>[],
+    quizzes: [] as Record<string, unknown>[],
   });
+  const [curriculumSequence, setCurriculumSequence] = useState<CurriculumStep[]>(
+    [],
+  );
+  const chaptersRef = useRef<Record<string, unknown>[]>([]);
+  const quizzesRef = useRef<Record<string, unknown>[]>([]);
+  chaptersRef.current = courseData.chapters;
+  quizzesRef.current = courseData.quizzes;
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
   const [showLayoutPreview, setShowLayoutPreview] = useState(false);
@@ -39,6 +56,8 @@ const CreateCourse = () => {
       setActiveTab("chapters");
     } else if (activeTab === "chapters") {
       setActiveTab("quiz");
+    } else if (activeTab === "quiz") {
+      setActiveTab("order");
     }
   };
 
@@ -50,16 +69,20 @@ const CreateCourse = () => {
           const token = await loginIntsructor();
           const module = await getModuleById(token, moduleId);
 
+          const ch = module.chapters || [];
+          const qu = module.questions || [];
           setCourseData({
             basicInfo: {
               title: module.title || "",
               description: module.description || "",
               image: module.imgUrl || "",
               category: module.category || "",
+              isMandatory: Boolean(module.isMandatory),
             },
-            chapters: module.chapters || [],
-            quizzes: module.questions || [],
+            chapters: ch,
+            quizzes: qu,
           });
+          setCurriculumSequence(buildSequenceFromApi(ch, qu));
         } catch (error) {
           console.error("Error fetching module for editing:", error);
         }
@@ -75,24 +98,46 @@ const CreateCourse = () => {
     }));
   };
 
-  const handleChapterUpdate = (chapters) => {
-    setCourseData((prev) => ({
-      ...prev,
-      chapters,
-    }));
+  const handleChapterUpdate = (chapters: Record<string, unknown>[]) => {
+    setCourseData((prev) => ({ ...prev, chapters }));
+    setCurriculumSequence((seq) =>
+      reconcileSequence(seq, chapters, quizzesRef.current),
+    );
   };
 
-  const handleQuizUpdate = (quizzes) => {
-    setCourseData((prev) => ({
-      ...prev,
-      quizzes,
-    }));
+  const handleQuizUpdate = (quizzes: Record<string, unknown>[]) => {
+    setCourseData((prev) => ({ ...prev, quizzes }));
+    setCurriculumSequence((seq) =>
+      reconcileSequence(seq, chaptersRef.current, quizzes),
+    );
   };
 
   const handleSaveCourse = async () => {
     setIsLoading(true);
     try {
       const token = await loginIntsructor();
+      const seq = reconcileSequence(
+        curriculumSequence,
+        courseData.chapters,
+        courseData.quizzes,
+      );
+
+      const chapterOrders = new Map<string, number>();
+      const quizOrders = new Map<string, number>();
+      let ord = 1;
+      for (const step of seq) {
+        if (step.type === "chapter") chapterOrders.set(step.key, ord++);
+        else quizOrders.set(step.key, ord++);
+      }
+      for (const ch of courseData.chapters) {
+        const k = chapterKey(ch);
+        if (k && !chapterOrders.has(k)) chapterOrders.set(k, ord++);
+      }
+      for (const q of courseData.quizzes) {
+        const k = quizKey(q);
+        if (k && !quizOrders.has(k)) quizOrders.set(k, ord++);
+      }
+
       const moduleData = {
         title: courseData.basicInfo.title,
         // description: courseData.basicInfo.description,
@@ -101,10 +146,11 @@ const CreateCourse = () => {
         }),
         category: courseData.basicInfo.category,
         imgUrl: courseData.basicInfo.image,
-        chapters: courseData.chapters.map((chapter, chapterIndex) => ({
+        chapters: courseData.chapters.map((chapter) => ({
+          ...(chapter._id ? { _id: chapter._id } : {}),
           title: chapter.title,
           description: chapter.description,
-          order: chapterIndex + 1,
+          order: chapterOrders.get(chapterKey(chapter)) ?? 999,
           template: chapter.layout ? chapter.layout : chapter.template,
           content: {
             imgUrl: chapter.content?.imgUrl || chapter.image || "",
@@ -113,11 +159,15 @@ const CreateCourse = () => {
           },
           subChapters:
             chapter.subChapters?.map((subChapter, subChapterIndex) => ({
+              ...(subChapter._id ? { _id: subChapter._id } : {}),
               title: subChapter.title,
               // description: subChapter.description,
-              description: DOMPurify.sanitize(subChapter.description, {
-                ALLOWED_TAGS: [],
-              }),
+              description: DOMPurify.sanitize(
+                String(subChapter.description ?? ""),
+                {
+                  ALLOWED_TAGS: [],
+                },
+              ),
               order: subChapterIndex + 1,
               template: subChapter.layout
                 ? subChapter.layout
@@ -130,15 +180,25 @@ const CreateCourse = () => {
               },
             })) || [],
         })),
-        questions: courseData.quizzes.map((quiz, index) => ({
+        questions: courseData.quizzes.map((quiz) => ({
+          ...(quiz._id ? { _id: quiz._id } : {}),
           title: quiz.title || "Test title",
           question: quiz.question,
           options: quiz.options,
           type: quiz.type,
           answer: quiz.correctAnswers ? quiz.correctAnswers : quiz.answer,
-          order: courseData.chapters.length + index + 1,
+          order: quizOrders.get(quizKey(quiz)) ?? 999,
           template: "chapter-one",
+          ...(quiz.sourceChapterKey != null &&
+          String(quiz.sourceChapterKey).trim() !== ""
+            ? { sourceChapterKey: String(quiz.sourceChapterKey).trim() }
+            : {}),
+          ...(quiz.sourceChapterTitle != null &&
+          String(quiz.sourceChapterTitle).trim() !== ""
+            ? { sourceChapterTitle: String(quiz.sourceChapterTitle).trim() }
+            : {}),
         })),
+        isMandatory: Boolean(courseData.basicInfo.isMandatory),
       };
 
       const response = isEditMode
@@ -222,6 +282,18 @@ const CreateCourse = () => {
               >
                 Quiz
               </TabsTrigger>
+
+              <TabsTrigger
+                value="order"
+                onClick={() => setActiveTab("order")}
+                className={`flex-1 px-6 py-4 text-sm font-medium ${
+                  activeTab === "order"
+                    ? "text-blue-600 border-b-2 border-blue-600"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-dark-700"
+                }`}
+              >
+                Course order
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -242,7 +314,16 @@ const CreateCourse = () => {
             <TabsContent value="quiz">
               <QuizCreation
                 quizzes={courseData.quizzes}
+                chapters={courseData.chapters}
                 onUpdate={handleQuizUpdate}
+              />
+            </TabsContent>
+            <TabsContent value="order">
+              <CurriculumOrderEditor
+                chapters={courseData.chapters}
+                quizzes={courseData.quizzes}
+                sequence={curriculumSequence}
+                onSequenceChange={setCurriculumSequence}
               />
             </TabsContent>
           </div>
@@ -255,7 +336,7 @@ const CreateCourse = () => {
           >
             Cancel
           </button>
-          {activeTab !== "quiz" ? (
+          {activeTab !== "order" ? (
             <button
               onClick={handleNext}
               className="px-6 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition focus:ring-4 focus:ring-blue-200"

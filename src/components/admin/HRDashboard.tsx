@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Users, CheckCircle, Clock, Search, ChevronDown } from "lucide-react";
+import {
+  Users,
+  CheckCircle,
+  Clock,
+  Search,
+  ChevronDown,
+  Download,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -91,6 +98,14 @@ const HRDashboard = () => {
   const [employeeData, setEmployeeData] = useState<any[]>([]);
   const [creditUsed, setCreditUsed] = useState(0);
   const [remainingCredit, setRemainingCredit] = useState(0);
+  const [trainingPrograms, setTrainingPrograms] = useState<
+    { id: string; title: string; isMandatory?: boolean }[]
+  >([]);
+  const [complianceCourseId, setComplianceCourseId] = useState("");
+  const [complianceStatus, setComplianceStatus] = useState<
+    "all" | "completed" | "pending" | "not_assigned"
+  >("all");
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const token = useSelector((state: any) => state.auth.token);
   const user = useSelector((state: any) => state.auth.user);
@@ -145,6 +160,9 @@ const HRDashboard = () => {
 
         const data = await response.json();
         setTrainingCount(data.totalCount);
+        if (Array.isArray(data.programs)) {
+          setTrainingPrograms(data.programs);
+        }
       } catch (error) {
         console.error("Error fetching training data:", error);
       }
@@ -220,7 +238,7 @@ const HRDashboard = () => {
     fetchTrainingData();
     fetchModuleStatus();
     fetchCreditStatus();
-  }, [user]);
+  }, [user, token]);
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -288,6 +306,35 @@ const HRDashboard = () => {
   const [selectedType, setSelectedType] = useState("All Types");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const downloadComplianceCsv = async () => {
+    if (!complianceCourseId || !token) return;
+    setExportingCsv(true);
+    try {
+      const url = `https://gaussconnect.com/api/manager/courses/${complianceCourseId}/compliance?format=csv&status=${complianceStatus}`;
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || res.statusText);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `course-compliance-${complianceCourseId}.csv`;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      console.error(e);
+      alert("Could not download CSV. Check that you selected a course.");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   return (
     <div className="pl-5">
       {/* Header with Filters */}
@@ -343,6 +390,64 @@ const HRDashboard = () => {
             ))}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+        </div>
+      </div>
+
+      <div className="mt-6 bg-white dark:bg-dark-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          Course compliance (CSV)
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Export detailed employee rows for one course: pending, completed, or
+          everyone. Uses employees in your company.
+        </p>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Course
+            </label>
+            <select
+              className="min-w-[220px] pl-3 pr-8 py-2 border border-gray-200 rounded-lg dark:border-dark-700 dark:bg-dark-900"
+              value={complianceCourseId}
+              onChange={(e) => setComplianceCourseId(e.target.value)}
+            >
+              <option value="">Select a course</option>
+              {trainingPrograms.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                  {p.isMandatory ? " (Mandatory)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Rows
+            </label>
+            <select
+              className="pl-3 pr-8 py-2 border border-gray-200 rounded-lg dark:border-dark-700 dark:bg-dark-900"
+              value={complianceStatus}
+              onChange={(e) =>
+                setComplianceStatus(e.target.value as typeof complianceStatus)
+              }
+            >
+              <option value="all">All employees</option>
+              <option value="pending">
+                Not completed (in progress + not assigned)
+              </option>
+              <option value="completed">Completed only</option>
+              <option value="not_assigned">Not assigned only</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            disabled={!complianceCourseId || exportingCsv}
+            onClick={downloadComplianceCsv}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900 disabled:bg-gray-300 disabled:cursor-not-allowed dark:disabled:bg-gray-600"
+          >
+            <Download className="w-4 h-4" />
+            {exportingCsv ? "Downloading…" : "Download CSV"}
+          </button>
         </div>
       </div>
 

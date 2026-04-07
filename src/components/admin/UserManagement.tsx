@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AssignModuleModal from "./AssignModuleModal";
+import BulkAssignModal from "./BulkAssignModal";
 import api, { configureApi } from "../../api/api";
 
 interface Module {
@@ -125,8 +126,14 @@ const UserManagement = () => {
   const [assignModuleModal, setAssignModuleModal] = useState({
     isOpen: false,
     employeeEmail: "",
+    employeeId: "",
   });
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>(
+    [],
+  );
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   // Get auth token from Redux store
   const token = useSelector((state: any) => state.auth?.token);
@@ -247,24 +254,56 @@ const UserManagement = () => {
     }
   };
 
-  const handleAssignModule = async (email: string) => {
+  const handleAssignModule = (email: string, employeeId: string) => {
     setAssignModuleModal({
       isOpen: true,
       employeeEmail: email,
+      employeeId,
     });
   };
 
   const handleAssignModules = async (moduleIds: string[]) => {
     try {
-      await api.post(`/api/manager/assign-modules`, {
-        email: assignModuleModal.employeeEmail,
-        moduleIds,
+      await api.post(`/api/manager/employees/assign-courses`, {
+        employeeId: assignModuleModal.employeeId,
+        courseIds: moduleIds,
       });
       toast.success("Modules assigned successfully");
-      fetchEmployees(); // Refresh the employee list
-    } catch (error) {
+      fetchEmployees();
+    } catch (error: unknown) {
       console.error("Error assigning modules:", error);
-      toast.error("Failed to assign modules");
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || "Failed to assign modules");
+    }
+  };
+
+  const toggleEmployeeSelected = (id: string) => {
+    setSelectedEmployeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const allEmployeeIds = employees.map((e) => e._id);
+
+  const allEmployeesSelected =
+    allEmployeeIds.length > 0 &&
+    allEmployeeIds.every((id) => selectedEmployeeIds.includes(id));
+
+  const someEmployeesSelected =
+    selectedEmployeeIds.length > 0 && !allEmployeesSelected;
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (el) {
+      el.indeterminate = someEmployeesSelected;
+    }
+  }, [someEmployeesSelected]);
+
+  const toggleSelectAllEmployees = () => {
+    if (allEmployeesSelected) {
+      setSelectedEmployeeIds([]);
+    } else {
+      setSelectedEmployeeIds([...allEmployeeIds]);
     }
   };
 
@@ -313,6 +352,17 @@ const UserManagement = () => {
       <h1 className="text-2xl dark:ml-0 ml-5 pt-10 font-semibold text-gray-900 dark:text-white">
         Employee Training Management
       </h1>
+
+      <div className="mt-4 ml-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={selectedEmployeeIds.length === 0}
+          onClick={() => setBulkAssignOpen(true)}
+          className="px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed dark:disabled:bg-gray-600"
+        >
+          Bulk assign courses ({selectedEmployeeIds.length} selected)
+        </button>
+      </div>
 
       {/* Main Container for horizontal layout */}
       <div className="grid grid-cols-1 mt-5 md:grid-cols-2 gap-6">
@@ -393,10 +443,25 @@ const UserManagement = () => {
       <AssignModuleModal
         isOpen={assignModuleModal.isOpen}
         onClose={() =>
-          setAssignModuleModal({ isOpen: false, employeeEmail: "" })
+          setAssignModuleModal({
+            isOpen: false,
+            employeeEmail: "",
+            employeeId: "",
+          })
         }
         employeeEmail={assignModuleModal.employeeEmail}
         onAssign={handleAssignModules}
+      />
+
+      <BulkAssignModal
+        isOpen={bulkAssignOpen}
+        onClose={() => setBulkAssignOpen(false)}
+        employeeIds={selectedEmployeeIds}
+        onSuccess={() => {
+          toast.success("Courses assigned to selected employees");
+          setSelectedEmployeeIds([]);
+          fetchEmployees();
+        }}
       />
 
       {/* Employees Table */}
@@ -413,6 +478,16 @@ const UserManagement = () => {
             <table className="min-w-full dark:bg-dark-800">
               <thead className="bg-gray-50 dark:bg-dark-800">
                 <tr>
+                  <th className="px-4 py-3 text-left w-10">
+                    <input
+                      ref={selectAllCheckboxRef}
+                      type="checkbox"
+                      aria-label="Select all employees"
+                      checked={allEmployeesSelected}
+                      onChange={toggleSelectAllEmployees}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Employee Code
                   </th>
@@ -440,7 +515,19 @@ const UserManagement = () => {
                     .map((employee) => {
                       console.log("Rendering employee:", employee);
                       return (
-                        <tr key={employee.employeeCode}>
+                        <tr key={employee._id}>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedEmployeeIds.includes(
+                                employee._id,
+                              )}
+                              onChange={() =>
+                                toggleEmployeeSelected(employee._id)
+                              }
+                              className="h-4 w-4 rounded border-gray-300"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {employee.employeeCode}
                           </td>
@@ -604,7 +691,7 @@ const UserManagement = () => {
                             <div className="flex gap-5">
                               <button
                                 onClick={() =>
-                                  handleAssignModule(employee.email)
+                                  handleAssignModule(employee.email, employee._id)
                                 }
                                 className="text-blue-600 hover:text-blue-900 text-sm"
                               >
@@ -683,7 +770,7 @@ const UserManagement = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={6}
                       className="px-6 py-4 text-center text-gray-500"
                     >
                       No employees found
