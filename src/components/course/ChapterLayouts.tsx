@@ -407,7 +407,7 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
     if (!editable) {
       return (
         <div
-          className="prose prose-lg dark:prose-dark"
+          className="prose prose-lg dark:prose-dark chapter-rich-content"
           dangerouslySetInnerHTML={{ __html: content }}
         />
       );
@@ -424,7 +424,7 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
       />
     ) : (
       <div
-        className="prose prose-lg dark:prose-dark cursor-text"
+        className="prose prose-lg dark:prose-dark chapter-rich-content cursor-text"
         onClick={() => setIsEditingContent(true)}
         dangerouslySetInnerHTML={{ __html: editableContent }}
       />
@@ -599,7 +599,7 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
                 />
               ) : (
                 <div
-                  className="italic text-3xl text-gray-700 dark:text-gray-300 border-l-4 border-blue-500 pl-4 cursor-text"
+                  className="chapter-rich-content italic text-3xl text-gray-700 dark:text-gray-300 border-l-4 border-blue-500 pl-4 cursor-text"
                   onClick={() => setIsEditingContent(true)}
                   dangerouslySetInnerHTML={{ __html: editableContent }}
                 />
@@ -655,7 +655,7 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
                 />
               ) : (
                 <div
-                  className="text-2xl text-gray-600 dark:text-gray-300 mt-4 cursor-text prose prose-lg dark:prose-invert"
+                  className="chapter-rich-content text-2xl text-gray-600 dark:text-gray-300 mt-4 cursor-text prose prose-lg dark:prose-invert"
                   onClick={() => setIsEditingContent(true)}
                   dangerouslySetInnerHTML={{
                     __html: editableContent || "<p>Click to edit content</p>",
@@ -672,9 +672,9 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
                 {renderTitle()}
               </h1>
-              <p className="text-xl text-gray-600 dark:text-gray-300">
+              <div className="text-xl text-gray-600 dark:text-gray-300">
                 {renderContent()}
-              </p>
+              </div>
             </div>
           </div>
         );

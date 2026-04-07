@@ -12,9 +12,19 @@ export const WritingPrompts = {
   }),
 
   explain: (text: string) => ({
-    prompt: `Please explain the following text in simple terms not more than 100 token size:\n\n${text}`,
+    prompt: `Explain the following text with a legal/compliance training perspective.
+
+Requirements:
+- Keep plain and learner-friendly language
+- Be descriptive (around 180-260 words)
+- Include practical workplace examples
+- Mention legal/compliance implications, risks, and why this matters in policy terms
+- End with 3 short "Key takeaways"
+
+Text:
+\n${text}`,
     systemMessage:
-      "You are an expert at breaking down complex information into simple, easy-to-understand explanations. Focus on clarity and accessibility. Format your output as markdown.",
+      "You are a legal and compliance learning assistant for corporate training. Write clear, accurate, policy-aware explanations in plain English. Avoid legal advice disclaimers unless asked. Prefer practical interpretation for employees and managers. Format your output as markdown.",
   }),
 
   concise: (text: string) => ({
