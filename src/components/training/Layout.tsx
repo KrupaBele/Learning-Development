@@ -287,13 +287,13 @@ const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     case "Classic Statement":
       return (
         <div className="min-h-[600px] flex items-center justify-center relative bg-gray-100 dark:bg-dark-700 p-8">
-          <div className="max-w-3xl text-center">
+          <div className="max-w-3xl w-full text-left">
             <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
               {selectedChapter?.title}
             </h1>
-            <p className="text-xl text-gray-700 dark:text-gray-300">
+            <div className="prose prose-lg dark:prose-dark max-w-none text-gray-700 dark:text-gray-300">
               {parsedDescription}
-            </p>
+            </div>
           </div>
           {selectedChapter?.content?.audioUrl && (
             <>

@@ -578,7 +578,7 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
       case "layout7":
         return (
           <div className="min-h-[600px] flex items-center justify-center bg-gray-100 dark:bg-dark-700 p-8">
-            <div className="max-w-3xl text-center">
+            <div className="max-w-3xl w-full text-left">
               {renderTitle()}
               {renderContent()}
             </div>
