@@ -175,6 +175,12 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
 
       if (editingChapterId !== null) {
         // Update existing chapter or sub-chapter
+        const parentForSub = normalizedChapters.find((chapter: any) =>
+          chapter.subChapters?.some((sc: any) => sc.id === editingChapterId),
+        );
+        const lastEditedChapterTitle = parentForSub
+          ? `${parentForSub.title} › ${newChapter.title}`
+          : newChapter.title;
         onUpdate(
           normalizedChapters.map((chapter: any) => {
             if (chapter.id === editingChapterId) {
@@ -216,7 +222,8 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
             }
 
             return chapter;
-          })
+          }),
+          { lastEditedChapterTitle },
         );
         setEditingChapterId(null);
         setIsAddingSubChapter(false);
@@ -235,6 +242,10 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
           layout: newChapter.layout,
         };
 
+        const parentCh = normalizedChapters.find(
+          (c: any) => c.id === parentChapterId,
+        );
+        const parentTitle = parentCh?.title || "Chapter";
         onUpdate(
           normalizedChapters.map((chapter: any) =>
             chapter.id === parentChapterId
@@ -243,27 +254,33 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                   subChapters: [...(chapter.subChapters || []), newSubChapter],
                 }
               : chapter
-          )
+          ),
+          {
+            lastEditedChapterTitle: `${parentTitle} › ${newChapter.title}`,
+          },
         );
         setIsAddingSubChapter(false);
         setParentChapterId(null);
       } else {
         // Add new chapter
-        onUpdate([
-          ...normalizedChapters,
-          {
-            id: Date.now().toString(),
-            title: newChapter.title,
-            description: sanitizedContent,
-            duration: newChapter.duration,
-            content: {
-              imgUrl: newChapter.image || "",
-              audioUrl: newChapter.audio || "",
+        onUpdate(
+          [
+            ...normalizedChapters,
+            {
+              id: Date.now().toString(),
+              title: newChapter.title,
+              description: sanitizedContent,
+              duration: newChapter.duration,
+              content: {
+                imgUrl: newChapter.image || "",
+                audioUrl: newChapter.audio || "",
+              },
+              layout: newChapter.layout,
+              subChapters: [],
             },
-            layout: newChapter.layout,
-            subChapters: [],
-          },
-        ]);
+          ],
+          { lastEditedChapterTitle: newChapter.title },
+        );
       }
 
       setNewChapter({
