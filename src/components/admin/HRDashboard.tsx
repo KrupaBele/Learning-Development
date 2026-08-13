@@ -119,7 +119,7 @@ const HRDashboard = () => {
     const fetchEmployeeData = async () => {
       try {
         const response = await fetch(
-          "https://gaussconnect.com/api/manager/employees/progress",
+          `${import.meta.env.VITE_API_BASE_URL}/api/manager/employees/progress`,
           {
             method: "GET",
             headers: {
@@ -145,7 +145,7 @@ const HRDashboard = () => {
     const fetchTrainingData = async () => {
       try {
         const response = await fetch(
-          "https://gaussconnect.com/api/manager/training-programs",
+          `${import.meta.env.VITE_API_BASE_URL}/api/manager/training-programs`,
           {
             method: "GET",
             headers: {
@@ -171,7 +171,7 @@ const HRDashboard = () => {
     const fetchModuleStatus = async () => {
       try {
         const response = await fetch(
-          "https://gaussconnect.com/api/manager/modules/total-status",
+          `${import.meta.env.VITE_API_BASE_URL}/api/manager/modules/total-status`,
           {
             method: "GET",
             headers: {
@@ -220,7 +220,7 @@ const HRDashboard = () => {
     const fetchCreditStatus = async () => {
       try {
         const response = await axios.get(
-          `https://gaussconnect.com/api/manager-credit/credit-status/${user?._id}`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/manager-credit/credit-status/${user?._id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -244,7 +244,7 @@ const HRDashboard = () => {
     const fetchEmployeeData = async () => {
       try {
         const response = await fetch(
-          "https://gaussconnect.com/api/manager/employees/details",
+          `${import.meta.env.VITE_API_BASE_URL}/api/manager/employees/details`,
           {
             method: "GET",
             headers: {
@@ -272,7 +272,7 @@ const HRDashboard = () => {
   const fetchTrainingEngagement = async () => {
     try {
       const response = await fetch(
-        "https://gaussconnect.com/api/manager/modules/categories/status",
+        `${import.meta.env.VITE_API_BASE_URL}/api/manager/modules/categories/status`,
         {
           method: "GET",
           headers: {
@@ -310,7 +310,7 @@ const HRDashboard = () => {
     if (!complianceCourseId || !token) return;
     setExportingCsv(true);
     try {
-      const url = `https://gaussconnect.com/api/manager/courses/${complianceCourseId}/compliance?format=csv&status=${complianceStatus}`;
+      const url = `${import.meta.env.VITE_API_BASE_URL}/api/manager/courses/${complianceCourseId}/compliance?format=csv&status=${complianceStatus}`;
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,

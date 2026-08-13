@@ -1,5 +1,6 @@
 import axios from "axios";
-const API_BASE_URL = "https://gaussconnect.com/api";
+
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"}/api`;
 
 // Function to get the token for authentication
 export const login = async () => {
@@ -75,7 +76,7 @@ export const loginIntsructor = async () => {
 // Function to get course status distribution data
 export const getCourseStatusDistribution = async (token) => {
   const response = await axios.get(
-    `${API_BASE_URL}/api/modules/status-distribution`,
+    `${API_BASE_URL}/modules/status-distribution`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,7 +88,7 @@ export const getCourseStatusDistribution = async (token) => {
 
 // Function to get module counts data
 export const getModuleCounts = async (token) => {
-  const response = await axios.get(`${API_BASE_URL}/api/modules/counts`, {
+  const response = await axios.get(`${API_BASE_URL}/modules/counts`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -97,7 +98,7 @@ export const getModuleCounts = async (token) => {
 
 // Function to get client onboarding details
 export const getClientOnboardingDetails = async (token) => {
-  const response = await axios.get(`${API_BASE_URL}/client/onboarding`, {
+  const response = await axios.get(`${API_BASE_URL}/admin/onboarding`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return response.data.data;
@@ -107,7 +108,7 @@ export const getClientOnboardingDetails = async (token) => {
 export const createModule = async (token, moduleData) => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/api/module/create`,
+      `${API_BASE_URL}/module/create`,
       moduleData,
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -123,7 +124,7 @@ export const createModule = async (token, moduleData) => {
 // Function to get all modules
 export const getInstructorModules = async (token) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/instructor-modules`, {
+    const response = await axios.get(`${API_BASE_URL}/instructor-modules`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -135,7 +136,7 @@ export const getInstructorModules = async (token) => {
 
 export const deleteModule = async (token, moduleId) => {
   const response = await axios.delete(
-    `${API_BASE_URL}/api/module/${moduleId}`,
+    `${API_BASE_URL}/module/${moduleId}`,
     {
       headers: { Authorization: `Bearer ${token}` },
     },

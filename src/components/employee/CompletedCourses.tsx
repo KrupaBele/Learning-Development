@@ -95,7 +95,7 @@ const CompletedCourses = () => {
       return;
     }
 
-    fetch("https://gaussconnect.com/api/user-progress", {
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/user-progress`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

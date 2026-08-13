@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
 import { toast } from "react-toastify";
 import { useDispatch } from "react-redux";
@@ -18,10 +18,20 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [searchParams] = useSearchParams();
+  const lockedRole = searchParams.get("role") || "";
+  const isRoleLocked = !!lockedRole && roles.some((r) => r.id === lockedRole);
   const { signin, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  useEffect(() => {
+    if (isRoleLocked) {
+      setSelectedRole(lockedRole);
+    }
+  }, [isRoleLocked, lockedRole]);
+
+  //@ts-ignore
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedRole) {
@@ -79,16 +89,21 @@ const LoginPage = () => {
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                className="w-full px-4 py-3 bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-left flex items-center justify-between"
+                disabled={isRoleLocked}
+                onClick={() => !isRoleLocked && setShowRoleDropdown(!showRoleDropdown)}
+                className={`w-full px-4 py-3 border rounded-xl text-left flex items-center justify-between ${
+                  isRoleLocked
+                    ? "bg-gray-100 dark:bg-dark-800 cursor-not-allowed border-gray-300 dark:border-dark-500"
+                    : "bg-white dark:bg-dark-700 border-gray-200 dark:border-dark-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                }`}
               >
                 <span className={selectedRole ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
                   {selectedRole ? roles.find(r => r.id === selectedRole)?.label : 'Select your role'}
                 </span>
-                <ChevronDown className="w-5 h-5 text-gray-400" />
+                {!isRoleLocked && <ChevronDown className="w-5 h-5 text-gray-400" />}
               </button>
-              
-              {showRoleDropdown && (
+
+              {showRoleDropdown && !isRoleLocked && (
                 <div className="absolute z-10 w-full mt-2 bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-600 rounded-xl shadow-lg">
                   {roles.map((role) => (
                     <button

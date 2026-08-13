@@ -178,7 +178,7 @@ const TrainingDetails = () => {
     }
 
     axios
-      .get(`https://gaussconnect.com/api/module/${id}/employee`, {
+      .get(`${import.meta.env.VITE_API_BASE_URL}/api/module/${id}/employee`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -198,7 +198,7 @@ const TrainingDetails = () => {
 
     axios
       .get(
-        `https://gaussconnect.com/api/section?id=${chapterId}&type=chapter`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/section?id=${chapterId}&type=chapter`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -228,7 +228,7 @@ const TrainingDetails = () => {
 
     axios
       .get(
-        `https://gaussconnect.com/api/section?id=${selectedChapter._id}&type=chapter&subchapterOrder=${subChapter.order}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/section?id=${selectedChapter._id}&type=chapter&subchapterOrder=${subChapter.order}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -249,7 +249,7 @@ const TrainingDetails = () => {
   const fetchQuestion = (questionId: string) => {
     axios
       .get(
-        `https://gaussconnect.com/api/section?id=${questionId}&type=question`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/section?id=${questionId}&type=question`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -277,7 +277,7 @@ const TrainingDetails = () => {
 
     axios
       .post(
-        "https://gaussconnect.com/api/chapter-complete",
+        `${import.meta.env.VITE_API_BASE_URL}/api/chapter-complete`,
         {
           chapterId: chapterId,
           moduleId: id, // Ensure module ID is sent
@@ -361,7 +361,7 @@ const TrainingDetails = () => {
     // Post the selected answer to check if it's correct
     axios
       .post(
-        "https://gaussconnect.com/api/question-complete",
+        `${import.meta.env.VITE_API_BASE_URL}/api/question-complete`,
         {
           questionId: question._id,
           moduleId: id,

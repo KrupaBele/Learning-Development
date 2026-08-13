@@ -24,6 +24,8 @@ import ResetPassword from "./components/auth/ResetPassword";
 import store from "./redux/store";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Settings from "./components/admin/Setting";
+import AdminOnboardingForm from "./components/admin/AdminOnboardingForm";
+import ClientDetails from "./components/admin/ClientDetails";
 import ProtectedRoute from "./store/ProtectedRoute";
 import CompletedCourses from "./components/employee/CompletedCourses";
 import PendingCourses from "./components/employee/PendingCourses";
@@ -84,6 +86,8 @@ function App() {
               <Route path="courses/create" element={<CreateCourse />} />
               <Route path="courses/edit/:courseId" element={<CreateCourse />} />
               <Route path="course-review/:id" element={<CourseReview />} />
+              <Route path="onboard-client" element={<AdminOnboardingForm />} />
+              <Route path="client-details" element={<ClientDetails />} />
             </Route>
 
             {/* Other authenticated routes with ThemeProvider */}

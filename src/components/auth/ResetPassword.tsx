@@ -42,7 +42,7 @@ const ResetPassword = () => {
       setLoading(true);
 
       const response = await axios.put(
-        `https://gaussconnect.com/api/users/${user._id}/update-password`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/users/${user._id}/update-password`,
         {
           newPassword,
           userId: user._id,

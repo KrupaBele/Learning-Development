@@ -52,17 +52,17 @@ const COLORS = [
 ];
 
 const Dashboard = () => {
-  const [token, setToken] = useState("");
-  const [dashboardData, setDashboardData] = useState(null);
-  const [signupsData, setSignupsData] = useState(null);
-  const [courseDistribution, setCourseDistribution] = useState([]);
-  const [onboardingData, setOnboardingData] = useState([]);
+  const [token, setToken] = useState<string>("");
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [signupsData, setSignupsData] = useState<any>(null);
+  const [courseDistribution, setCourseDistribution] = useState<any[]>([]);
+  const [onboardingData, setOnboardingData] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [pendingApprovals, setPendingApprovals] = useState([]);
-  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [selectedApproval, setSelectedApproval] = useState<any>(null);
   const [rejectionComment, setRejectionComment] = useState("");
-  const [isApproving, setIsApproving] = useState(null); // Holds the approving courseId
-  const [isRejecting, setIsRejecting] = useState(null); // Holds the rejecting courseId
+  const [isApproving, setIsApproving] = useState<any>(null);
+  const [isRejecting, setIsRejecting] = useState<any>(null);
 
   const navigate = useNavigate();
 
@@ -74,14 +74,19 @@ const Dashboard = () => {
         const data = await getDashboardData(token);
         const signups = await getTotalSignups(token);
         const courseData = await getCourseDistribution(token);
-        const onboardingDetails = await getClientOnboardingDetails(token);
         const fetchApprovals = await getAllCourses(token);
         setDashboardData(data);
         setSignupsData(signups);
         const pending = await fetchApprovals;
         setCourseDistribution(courseData.distribution);
-        setOnboardingData(onboardingDetails);
         setPendingApprovals(pending);
+        try {
+          const onboardingDetails = await getClientOnboardingDetails(token);
+          setOnboardingData(onboardingDetails ?? []);
+        } catch (onboardingErr) {
+          console.error("Error fetching onboarding data:", onboardingErr);
+          setOnboardingData([]);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -642,7 +647,7 @@ const Dashboard = () => {
                   Contact Person
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Designation
+                  GST No.
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
                   Email
@@ -654,11 +659,10 @@ const Dashboard = () => {
                   Employees Number
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Contract Expiry
+                  Onboarded On
                 </th>
-                {/* <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Active Users</th> */}
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Invoice
+                  Courses
                 </th>
               </tr>
             </thead>
@@ -669,30 +673,28 @@ const Dashboard = () => {
                   className="hover:bg-gray-50 dark:hover:bg-dark-700/50 transition"
                 >
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {client.company?.companyDetails[0].companyName}
+                    {client.companyName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-white">
-                    {client.contactInformation[0].firstName}{" "}
-                    {client.contactInformation[0].lastName}
+                    {client.contactName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {client.contactInformation[0].jobTitle}
+                    {client.gstNumber}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-white">
-                    {client.contactInformation[0].email}
+                    {client.contactEmail}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {client.contactInformation[0].phoneNumber}
+                    {client.contactPhone}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-white">
-                    {client.company?.companyDetails[0].numberOfEmployees}
+                    {client.numberOfEmployees}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {new Date(client.contractExpiry).toLocaleDateString()}
+                    {new Date(client.createdAt).toLocaleDateString()}
                   </td>
-                  {/* <td className="px-6 py-4 text-sm text-gray-900"></td> */}
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-white">
-                    {client.invoices[0]?.invoiceNumber || "N/A"}
+                    {client.assignedModules?.length ?? 0} course(s)
                   </td>
                   {/* <td className="px-6 py-4 text-sm text-gray-900">
                     {user.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}

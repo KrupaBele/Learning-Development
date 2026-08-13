@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>((set) => {
     signin: async ({ credentials, onSuccess }) => {
       set({ isLoading: true, error: null });
       try {
-        const response = await fetch("https://gaussconnect.com/api/login", {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/login`, {
           method: "POST",
           body: JSON.stringify(credentials),
           headers: { "Content-Type": "application/json" },

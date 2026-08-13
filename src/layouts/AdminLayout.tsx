@@ -14,10 +14,11 @@ import {
   Sun,
   UserPlus,
   CreditCard,
-  Presentation,
   CheckCircle,
   Clock,
   Home,
+  Building2,
+  ClipboardList,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import {
@@ -72,6 +73,18 @@ const menuItems = [
     icon: Clock,
     path: "/pending-courses",
     roles: ["EMPLOYEE"],
+  },
+  {
+    title: "Onboard Client",
+    icon: Building2,
+    path: "/admin/onboard-client",
+    roles: ["SUPER_ADMIN"],
+  },
+  {
+    title: "Client Details",
+    icon: ClipboardList,
+    path: "/admin/client-details",
+    roles: ["SUPER_ADMIN"],
   },
   {
     title: "Create Courses",
