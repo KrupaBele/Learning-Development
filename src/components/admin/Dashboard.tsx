@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
 import {
   Users,
   Clock,
@@ -33,6 +34,32 @@ import {
 } from "../../utils/api.js";
 import { useNavigate } from "react-router-dom";
 
+const MetricCard = ({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: any;
+  title: string;
+  value: string;
+}) => {
+  return (
+    <div className="bg-white dark:bg-dark-800 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center dark:border-dark-700">
+      <div className="flex-shrink-0 w-12 h-12 bg-blue-100 text-blue-600 rounded-full  dark:bg-blue-900/30 flex items-center justify-center">
+        <Icon className="dark:text-blue-400" size={24} />
+      </div>
+      <div className="ml-4">
+        <h3 className="text-sm font-medium dark:text-gray-400 text-gray-500">
+          {title}
+        </h3>
+        <p className="text-lg dark:text-white font-semibold text-gray-900">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const COLORS = [
   "#3B82F6", // Blue
   "#10B981", // Green
@@ -63,25 +90,36 @@ const Dashboard = () => {
   const [rejectionComment, setRejectionComment] = useState("");
   const [isApproving, setIsApproving] = useState<any>(null);
   const [isRejecting, setIsRejecting] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const reduxToken = useSelector((state: any) => state.auth.token);
+  const hasFetched = useRef(false);
 
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const fetchData = async () => {
       try {
-        const token = await login();
-        setToken(token);
-        const data = await getDashboardData(token);
-        const signups = await getTotalSignups(token);
-        const courseData = await getCourseDistribution(token);
-        const fetchApprovals = await getAllCourses(token);
+        const authToken = reduxToken || await login();
+        setToken(authToken);
+
+        const [data, signups, courseData, approvals] = await Promise.all([
+          getDashboardData(authToken),
+          getTotalSignups(authToken),
+          getCourseDistribution(authToken),
+          getAllCourses(authToken),
+        ]);
+
         setDashboardData(data);
         setSignupsData(signups);
-        const pending = await fetchApprovals;
         setCourseDistribution(courseData.distribution);
-        setPendingApprovals(pending);
+        setPendingApprovals(approvals);
+
         try {
-          const onboardingDetails = await getClientOnboardingDetails(token);
+          const onboardingDetails = await getClientOnboardingDetails(authToken);
           setOnboardingData(onboardingDetails ?? []);
         } catch (onboardingErr) {
           console.error("Error fetching onboarding data:", onboardingErr);
@@ -89,10 +127,12 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [reduxToken]);
 
   //  // Fetch Pending Approvals
   //  useEffect(() => {
@@ -167,13 +207,25 @@ const Dashboard = () => {
     }
   };
 
-  if (
-    !dashboardData ||
-    !signupsData ||
-    !courseDistribution.length ||
-    !onboardingData
-  ) {
-    return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 bg-gray-200 dark:bg-dark-700 rounded w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white dark:bg-dark-800 p-6 rounded-xl border border-gray-100 dark:border-dark-700 h-24" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-100 dark:border-dark-700 h-80" />
+          <div className="bg-white dark:bg-dark-800 rounded-xl border border-gray-100 dark:border-dark-700 h-80" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData || !signupsData) {
+    return <div className="text-gray-500 dark:text-gray-400 p-6">Failed to load dashboard data.</div>;
   }
 
   const {
@@ -224,37 +276,6 @@ const Dashboard = () => {
       read: true,
     },
   ];
-
-  const MetricCard = ({
-    icon: Icon,
-    title,
-    value,
-  }: {
-    icon: any;
-    title: string;
-    value: string;
-  }) => {
-    return (
-      <div className="bg-white dark:bg-dark-800 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center dark:border-dark-700">
-        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 text-blue-600 rounded-full  dark:bg-blue-900/30 flex items-center justify-center">
-          <Icon className="dark:text-blue-400" size={24} />
-        </div>
-        <div className="ml-4">
-          <h3 className="text-sm font-medium dark:text-gray-400 text-gray-500">
-            {title}
-          </h3>
-          <p className="text-lg dark:text-white font-semibold text-gray-900">
-            {value}
-          </p>
-          {/* {trend && (
-            <p className="text-sm dark:text-green-400 text-green-600">
-              {trend}
-            </p>
-          )} */}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6">
