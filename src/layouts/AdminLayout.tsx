@@ -116,10 +116,6 @@ const AdminLayout = () => {
   const user = useSelector((state: any) => state.auth.user);
   const userRole = user?.role || "GUEST";
 
-  const toggleSidebar = () => {
-    setSidebarExpanded(!sidebarExpanded);
-  };
-
   const handleMouseEnter = () => {
     if (!sidebarExpanded) {
       setSidebarHovered(true);
@@ -152,6 +148,7 @@ const AdminLayout = () => {
         display: "flex",
         minHeight: "100vh",
         bgcolor: darkMode ? "#0F172A" : "#F9FAFB",
+        overflowX: "hidden",
       }}
     >
       {/* Sidebar */}
@@ -161,7 +158,7 @@ const AdminLayout = () => {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         sx={{
-          width: sidebarExpanded || sidebarHovered ? "20%" : 80,
+          width: 80,
           flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: sidebarExpanded || sidebarHovered ? "20%" : 80,
@@ -172,6 +169,8 @@ const AdminLayout = () => {
             bgcolor: drawerBgColor,
             color: textColor,
             borderRight: `1px solid ${dividerColor}`,
+            transition: "width 0.2s ease",
+            zIndex: 1200,
           },
         }}
       >
@@ -301,6 +300,9 @@ const AdminLayout = () => {
           flexGrow: 1,
           px: 3,
           bgcolor: darkMode ? "#0F172A" : "#F9FAFB",
+          ml: "80px",
+          width: "calc(100% - 80px)",
+          overflowX: "hidden",
         }}
       >
         <Toolbar />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Users,
   Clock,
@@ -30,7 +30,7 @@ import {
   getClientOnboardingDetails,
   getAllCourses,
   updateCourseStatus,
-} from "../../utils/api.js"; // Import the utility functions
+} from "../../utils/api.js";
 import { useNavigate } from "react-router-dom";
 
 const COLORS = [
@@ -177,10 +177,10 @@ const Dashboard = () => {
   }
 
   const {
-    totalSignups,
+    // totalSignups,
     currentMonthSignups,
     previousMonthSignups,
-    growthPercentage,
+    // growthPercentage,
     monthToDate,
   } = signupsData;
 

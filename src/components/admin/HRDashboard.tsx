@@ -336,7 +336,7 @@ const HRDashboard = () => {
   };
 
   return (
-    <div className="pl-5">
+    <div className="w-full overflow-x-hidden">
       {/* Header with Filters */}
       <div className="bg-white dark:bg-dark-800 p-6 rounded-xl shadow-sm border border-gray-50 dark:border-dark-700">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
