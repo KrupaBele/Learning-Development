@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { useParams, Link } from "react-router-dom";
@@ -14,6 +14,11 @@ import {
   Clock,
   XCircle,
   ChevronRight,
+  Lock,
+  Award,
+  Download,
+  Printer,
+  X,
 } from "lucide-react";
 import axios from "axios";
 import { ChapterContent, chapterLayouts } from "../course/ChapterLayouts";
@@ -60,6 +65,7 @@ type SyllabusRow =
 const TrainingDetails = () => {
   const navigate = useNavigate();
   const token = useSelector((state: any) => state.auth.token);
+  const user = useSelector((state: any) => state.auth.user);
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState("overview");
   const [questionPanel, setQuestionPanel] = useState("overview");
@@ -111,6 +117,137 @@ const TrainingDetails = () => {
   const isLastQuestion = !hasMoreQuizOrChapterAfter;
 
   const [parsedDescription, setParsedDescription] = useState("");
+
+  // Video mode state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [watchedPercent, setWatchedPercent] = useState(0);
+  const [videoQuizUnlocked, setVideoQuizUnlocked] = useState(false);
+  const VIDEO_WATCH_THRESHOLD = 80;
+
+  // Certificate state
+  const [showCertificate, setShowCertificate] = useState(false);
+  const certCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const drawCertificate = (canvas: HTMLCanvasElement) => {
+    const CERT_W = 900;
+    const CERT_H = 620;
+    const DPR = 2;
+    canvas.width = CERT_W * DPR;
+    canvas.height = CERT_H * DPR;
+    canvas.style.width = `${CERT_W}px`;
+    canvas.style.height = `${CERT_H}px`;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(DPR, DPR);
+    const W = CERT_W;
+    const H = CERT_H;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "#1e3a5f";
+    ctx.lineWidth = 12;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+    ctx.strokeStyle = "#c9a84c";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(34, 34, W - 68, H - 68);
+    [[50,50],[W-50,50],[50,H-50],[W-50,H-50]].forEach(([cx,cy]) => {
+      ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fillStyle="#c9a84c"; ctx.fill();
+    });
+    const grad = ctx.createLinearGradient(0, 60, 0, 160);
+    grad.addColorStop(0, "#1e3a5f"); grad.addColorStop(1, "#2d5a8e");
+    ctx.fillStyle = grad; ctx.fillRect(34, 60, W - 68, 100);
+    ctx.fillStyle = "#ffffff"; ctx.font = "bold 38px Georgia, serif"; ctx.textAlign = "center";
+    ctx.fillText("CERTIFICATE OF COMPLETION", W/2, 122);
+    ctx.strokeStyle = "#c9a84c"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(80, 170); ctx.lineTo(W-80, 170); ctx.stroke();
+    ctx.fillStyle = "#555555"; ctx.font = "italic 22px Georgia, serif";
+    ctx.fillText("This is to certify that", W/2, 220);
+    const recipientName = user?.username || "Employee";
+    ctx.fillStyle = "#1e3a5f"; ctx.font = "bold 42px Georgia, serif";
+    ctx.fillText(recipientName, W/2, 280);
+    const nw = ctx.measureText(recipientName).width;
+    ctx.strokeStyle = "#c9a84c"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(W/2-nw/2, 292); ctx.lineTo(W/2+nw/2, 292); ctx.stroke();
+    ctx.fillStyle = "#555555"; ctx.font = "italic 22px Georgia, serif";
+    ctx.fillText("has successfully completed the training module", W/2, 340);
+    ctx.fillStyle = "#1e3a5f"; ctx.font = "bold 30px Georgia, serif";
+    const title = trainingDetails?.title || "";
+    const maxW = W - 160;
+    const words = title.split(" ");
+    let line = ""; let lineY = 395;
+    words.forEach((word: string, i: number) => {
+      const test = line + word + " ";
+      if (ctx.measureText(test).width > maxW && i > 0) { ctx.fillText(line.trim(), W/2, lineY); line = word+" "; lineY+=40; } else { line=test; }
+    });
+    ctx.fillText(line.trim(), W/2, lineY);
+    const date = new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+    ctx.fillStyle = "#777777"; ctx.font = "18px Georgia, serif";
+    ctx.fillText(`Completed on: ${date}`, W/2, lineY+60);
+    ctx.strokeStyle = "#c9a84c"; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(80, lineY+90); ctx.lineTo(W-80, lineY+90); ctx.stroke(); ctx.setLineDash([]);
+    const sigY = H - 110;
+    ctx.strokeStyle = "#333333"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(W/2-120, sigY); ctx.lineTo(W/2+120, sigY); ctx.stroke();
+    ctx.fillStyle = "#333333"; ctx.font = "16px Georgia, serif";
+    ctx.fillText("Authorized Signature", W/2, sigY+22);
+    ctx.beginPath(); ctx.arc(W-130, H-120, 55, 0, Math.PI*2); ctx.strokeStyle="#c9a84c"; ctx.lineWidth=3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(W-130, H-120, 44, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = "#1e3a5f"; ctx.font = "bold 13px Arial, sans-serif";
+    ctx.fillText("OFFICIAL", W-130, H-126); ctx.fillText("SEAL", W-130, H-110);
+    ctx.fillStyle = "#aaaaaa"; ctx.font = "13px Arial, sans-serif";
+    ctx.fillText("Elevatics360 Learning & Development", W/2, H-42);
+  };
+
+  const handleOpenCertificate = () => {
+    setShowCertificate(true);
+    setTimeout(() => { if (certCanvasRef.current) drawCertificate(certCanvasRef.current); }, 0);
+  };
+
+  const handleCertDownload = () => {
+    const canvas = certCanvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `Certificate_${(trainingDetails?.title || "module").replace(/\s+/g, "_")}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const handleCertPrint = () => {
+    const canvas = certCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Certificate</title><style>@page{size:landscape;margin:0}body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f3f4f6}img{width:100%;max-width:960px}</style></head><body><img src="${dataUrl}" onload="window.print()"/></body></html>`);
+    win.document.close();
+  };
+
+  const isVideoMode = trainingDetails?.moduleType === "video";
+
+  const handleVideoTimeUpdate = () => {
+    const video = videoRef.current;
+    if (!video || !video.duration) return;
+    const pct = Math.round((video.currentTime / video.duration) * 100);
+    setWatchedPercent(pct);
+    if (pct >= VIDEO_WATCH_THRESHOLD && !videoQuizUnlocked) {
+      setVideoQuizUnlocked(true);
+    }
+    // No-quiz video module: show certificate on 100% watch
+    if (pct === 100 && isVideoMode && !trainingDetails?.questions?.length && !showCertificate) {
+      handleOpenCertificate();
+    }
+  };
+
+  const handleStartVideoQuiz = () => {
+    if (!trainingDetails?.questions?.length) return;
+    const firstQuestion = trainingDetails.questions[0];
+    setActiveTab("content");
+    setQuestionPanel("overview");
+    setSelectedChapter(null);
+    setSelectedSubChapter(null);
+    fetchQuestion(firstQuestion._id);
+  };
 
   const syllabusItems = useMemo((): SyllabusRow[] => {
     if (!trainingDetails) return [];
@@ -504,7 +641,220 @@ const TrainingDetails = () => {
         <span className="text-gray-900 dark:text-white">Course</span>
       </nav>
 
-      {activeTab === "overview" ? (
+      {/* ── VIDEO MODE ─────────────────────────────────────────────────── */}
+      {isVideoMode && activeTab !== "content" ? (
+        <div className="space-y-6">
+          {/* Module header */}
+          {trainingDetails && (
+            <div className="bg-[#050A1F] text-white rounded-xl overflow-hidden flex relative">
+              <div className="w-1/2 p-8 flex flex-col justify-center relative z-10">
+                <h1 className="text-3xl font-semibold mb-4">{trainingDetails.title}</h1>
+                <div className="text-gray-300 leading-relaxed">{parsedDescription}</div>
+              </div>
+              <div className="relative w-1/2 h-64">
+                <img
+                  src={trainingDetails.imgUrl}
+                  alt={trainingDetails.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="absolute inset-y-0 left-1/2 w-1/6 bg-gradient-to-r from-[#080b19] via-[#050A1Fac] to-transparent" />
+            </div>
+          )}
+
+          {/* Video player */}
+          {trainingDetails?.videoUrl ? (
+            <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+              <video
+                ref={videoRef}
+                src={trainingDetails.videoUrl}
+                controls
+                controlsList="nodownload"
+                onTimeUpdate={handleVideoTimeUpdate}
+                className="w-full max-h-[520px] bg-black"
+              />
+              {/* Watch progress bar */}
+              <div className="px-6 py-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Watch progress</span>
+                  <span className={`font-medium ${
+                    videoQuizUnlocked ? "text-green-600" : "text-blue-600"
+                  }`}>
+                    {watchedPercent}% watched
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      videoQuizUnlocked ? "bg-green-500" : "bg-blue-600"
+                    }`}
+                    style={{ width: `${watchedPercent}%` }}
+                  />
+                </div>
+                {!videoQuizUnlocked && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    Watch at least {VIDEO_WATCH_THRESHOLD}% to unlock the quiz
+                  </p>
+                )}
+              </div>
+
+              {/* Quiz unlock CTA */}
+              <div className="px-6 pb-6">
+                {trainingDetails?.questions?.length > 0 ? (
+                  videoQuizUnlocked ? (
+                    <button
+                      onClick={handleStartVideoQuiz}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                    >
+                      <PlayCircle className="w-5 h-5" />
+                      Start Quiz
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full py-3 bg-gray-200 dark:bg-dark-700 text-gray-400 dark:text-gray-500 font-semibold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed"
+                    >
+                      <Lock className="w-4 h-4" />
+                      Quiz unlocks at {VIDEO_WATCH_THRESHOLD}% watched
+                    </button>
+                  )
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-dark-800 rounded-xl p-12 text-center text-gray-400">
+              Video is being processed. Please check back soon.
+            </div>
+          )}
+        </div>
+      ) : isVideoMode && activeTab === "content" ? (
+        /* Video mode quiz panel — reuses the same question UI */
+        <>
+          <button
+            onClick={() => {
+              setActiveTab("overview");
+              setQuestion(null);
+            }}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-white mb-2"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back to video
+          </button>
+          <div className="p-8 space-y-6 bg-white dark:bg-dark-800 rounded-xl shadow-sm">
+            <h4 className="text-gray-600 dark:text-gray-300 text-sm font-semibold">
+              {question?.type === "SCQ"
+                ? "Single Choice Question (Select One)"
+                : "Multiple Choice Question (Select Multiple)"}
+            </h4>
+            {question ? (
+              <h3
+                className="text-lg font-medium text-gray-900 dark:text-white mb-4"
+                dangerouslySetInnerHTML={{ __html: question.question }}
+              />
+            ) : (
+              <h3 className="text-gray-500 dark:text-gray-300">Loading question...</h3>
+            )}
+            <ul className="space-y-3">
+              {question?.options.map((option, index) => (
+                <li key={index}>
+                  <label
+                    className={`flex items-center space-x-4 p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                      selectedAnswers.includes(option)
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-300 bg-white dark:bg-dark-700 hover:bg-gray-100 dark:hover:bg-dark-600"
+                    }`}
+                  >
+                    <input
+                      type={question?.type === "SCQ" ? "radio" : "checkbox"}
+                      name="answer"
+                      value={option}
+                      checked={selectedAnswers.includes(option)}
+                      onChange={() => handleOptionChange(option)}
+                      className="hidden"
+                    />
+                    <span
+                      className={`w-6 h-6 flex items-center justify-center border rounded-full text-lg font-bold transition-all ${
+                        selectedAnswers.includes(option)
+                          ? "bg-blue-500 border-blue-500 text-white"
+                          : "border-gray-400 text-gray-400"
+                      }`}
+                    >
+                      {selectedAnswers.includes(option) && "✓"}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-500 text-lg font-medium">{option}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-between">
+              <button
+                onClick={handlePrevQuestion}
+                disabled={!prevQuestionId}
+                className={`px-5 py-2 rounded-lg transition-all duration-200 ${
+                  prevQuestionId
+                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                <ChevronLeft className="w-5 h-5 inline-block mr-2" />
+                Previous
+              </button>
+              <button
+                onClick={handleAnswerSubmit}
+                className="px-6 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-all duration-200"
+              >
+                Submit
+              </button>
+            </div>
+            {isPopupVisible && (
+              <div
+                onClick={closePopup}
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              >
+                {isAnswerCorrect && showConfetti && (
+                  <Confetti width={window.innerWidth} height={window.innerHeight} />
+                )}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white dark:bg-dark-800 p-6 rounded-xl shadow-lg text-center max-w-md w-full relative animate-fadeIn"
+                >
+                  <button
+                    onClick={closePopup}
+                    className="absolute top-2 right-2 text-gray-500 dark:text-gray-300 hover:text-gray-800 text-2xl"
+                  >
+                    ×
+                  </button>
+                  {isAnswerCorrect ? (
+                    <div>
+                      <h2 className="text-green-600 font-semibold text-xl">Correct Answer! 🎉</h2>
+                      {isLastQuestion ? (
+                        <button
+                          onClick={() => { setIsPopupVisible(false); handleOpenCertificate(); }}
+                          className="mt-4 px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg transition flex items-center gap-2 mx-auto"
+                        >
+                          <Award className="w-4 h-4" />
+                          View My Certificate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleNextQuestionAndClosePopup}
+                          className="mt-4 px-5 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition"
+                        >
+                          Next question
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <XCircle className="text-red-500 text-5xl mx-auto animate-shake" />
+                      <h2 className="text-red-600 font-semibold text-xl mt-4">Oops, Wrong Answer!</h2>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : activeTab === "overview" ? (
         <>
           {trainingDetails && (
             <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
@@ -944,10 +1294,11 @@ const TrainingDetails = () => {
                           </h2>
                           {isLastQuestion ? (
                             <button
-                              onClick={() => navigate("/employee")}
-                              className="mt-4 px-5 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition"
+                              onClick={() => { setIsPopupVisible(false); handleOpenCertificate(); }}
+                              className="mt-4 px-5 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg transition flex items-center gap-2 mx-auto"
                             >
-                              Go to Dashboard
+                              <Award className="w-4 h-4" />
+                              View My Certificate
                             </button>
                           ) : (
                             <button
@@ -975,6 +1326,52 @@ const TrainingDetails = () => {
             </>
           )}
         </>
+      )}
+      {/* ── CERTIFICATE MODAL ─────────────────────────────────────────── */}
+      {showCertificate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col my-auto">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-dark-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Award className="w-5 h-5 text-yellow-500" />
+                Certificate of Completion
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCertPrint}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 dark:border-dark-600 hover:bg-gray-50 dark:hover:bg-dark-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+                <button
+                  onClick={handleCertDownload}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PNG
+                </button>
+                <button
+                  onClick={() => { setShowCertificate(false); navigate("/employee"); }}
+                  className="ml-1 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-dark-700 dark:hover:bg-dark-600 text-gray-600 dark:text-gray-300 text-sm font-medium transition"
+                >
+                  Go to Dashboard
+                </button>
+                <button
+                  onClick={() => setShowCertificate(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            {/* Canvas Preview */}
+            <div className="w-full bg-gray-100 dark:bg-dark-900 flex items-center justify-center p-6 rounded-b-2xl overflow-x-auto">
+              <canvas ref={certCanvasRef} className="rounded-lg shadow-xl block" style={{ maxWidth: "100%" }} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

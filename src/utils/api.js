@@ -260,3 +260,34 @@ export const uploadImage = async (file) => {
     throw error;
   }
 };
+
+// Function to upload a video with progress tracking
+export const uploadVideo = async (file, onProgress) => {
+  try {
+    const formData = new FormData();
+    formData.append("video", file);
+
+    const response = await axios.post(
+      `${API_BASE_URL}/upload/video`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percent = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            onProgress(percent);
+          }
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading video:", error.response?.data || error);
+    throw error;
+  }
+};

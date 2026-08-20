@@ -12,7 +12,6 @@ import {
   updateModule,
 } from "../../utils/api.js";
 import { FaCheckCircle } from "react-icons/fa";
-import { ChapterLayoutSelector, ChapterPreview } from "./ChapterLayouts";
 import CurriculumOrderEditor from "./CurriculumOrderEditor";
 import {
   buildSequenceFromApi,
@@ -97,6 +96,8 @@ type CourseDataState = {
     image: string;
     category: string;
     isMandatory: boolean;
+    moduleType: "video" | "chapter";
+    videoUrl: string;
   };
   chapters: Record<string, unknown>[];
   quizzes: Record<string, unknown>[];
@@ -181,6 +182,8 @@ function buildModulePayload(
         : {}),
     })),
     isMandatory: Boolean(courseData.basicInfo.isMandatory),
+    moduleType: courseData.basicInfo.moduleType || "chapter",
+    videoUrl: courseData.basicInfo.videoUrl || "",
   };
 
   return moduleData;
@@ -197,6 +200,8 @@ const CreateCourse = () => {
       image: "",
       category: "",
       isMandatory: false,
+      moduleType: "chapter" as "video" | "chapter",
+      videoUrl: "",
     },
     chapters: [] as Record<string, unknown>[],
     quizzes: [] as Record<string, unknown>[],
@@ -224,17 +229,18 @@ const CreateCourse = () => {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
-  const [showLayoutPreview, setShowLayoutPreview] = useState(false);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("basic-info");
 
+  const isVideoMode = courseData.basicInfo.moduleType === "video";
+
   const handleNext = () => {
     if (activeTab === "basic-info") {
-      setActiveTab("chapters");
+      setActiveTab(isVideoMode ? "quiz" : "chapters");
     } else if (activeTab === "chapters") {
       setActiveTab("quiz");
     } else if (activeTab === "quiz") {
-      setActiveTab("order");
+      setActiveTab(isVideoMode ? "basic-info" : "order");
     }
   };
 
@@ -266,6 +272,8 @@ const CreateCourse = () => {
                 image: module.imgUrl || "",
                 category: module.category || "",
                 isMandatory: Boolean(module.isMandatory),
+                moduleType: module.moduleType || "chapter",
+                videoUrl: module.videoUrl || "",
               },
               chapters: draft.chapters,
               quizzes: qu,
@@ -291,6 +299,8 @@ const CreateCourse = () => {
                 image: module.imgUrl || "",
                 category: module.category || "",
                 isMandatory: Boolean(module.isMandatory),
+                moduleType: module.moduleType || "chapter",
+                videoUrl: module.videoUrl || "",
               },
               chapters: ch,
               quizzes: qu,
@@ -307,7 +317,7 @@ const CreateCourse = () => {
     }
   }, [moduleId]);
 
-  const handleBasicInfoUpdate = (data) => {
+  const handleBasicInfoUpdate = (data: any) => {
     setCourseData((prev) => ({
       ...prev,
       basicInfo: { ...prev.basicInfo, ...data },
@@ -381,7 +391,7 @@ const CreateCourse = () => {
       const moduleData = buildModulePayload(courseData, seq);
 
       const response = isEditMode
-        ? await updateModule(token, moduleId, moduleData)
+        ? await updateModule(token, moduleId!, moduleData)
         : await createModule(token, moduleData);
 
       if (isEditMode && moduleId) {
@@ -475,17 +485,19 @@ const CreateCourse = () => {
                 Basic Info
               </TabsTrigger>
 
-              <TabsTrigger
-                value="chapters"
-                onClick={() => setActiveTab("chapters")}
-                className={`flex-1 px-6 py-4 text-sm font-medium ${
-                  activeTab === "chapters"
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-dark-700"
-                }`}
-              >
-                Chapters
-              </TabsTrigger>
+              {!isVideoMode && (
+                <TabsTrigger
+                  value="chapters"
+                  onClick={() => setActiveTab("chapters")}
+                  className={`flex-1 px-6 py-4 text-sm font-medium ${
+                    activeTab === "chapters"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-dark-700"
+                  }`}
+                >
+                  Chapters
+                </TabsTrigger>
+              )}
 
               <TabsTrigger
                 value="quiz"
@@ -499,17 +511,19 @@ const CreateCourse = () => {
                 Quiz
               </TabsTrigger>
 
-              <TabsTrigger
-                value="order"
-                onClick={() => setActiveTab("order")}
-                className={`flex-1 px-6 py-4 text-sm font-medium ${
-                  activeTab === "order"
-                    ? "text-blue-600 border-b-2 border-blue-600"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-dark-700"
-                }`}
-              >
-                Course order
-              </TabsTrigger>
+              {!isVideoMode && (
+                <TabsTrigger
+                  value="order"
+                  onClick={() => setActiveTab("order")}
+                  className={`flex-1 px-6 py-4 text-sm font-medium ${
+                    activeTab === "order"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-dark-700"
+                  }`}
+                >
+                  Course order
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -552,7 +566,7 @@ const CreateCourse = () => {
           >
             Cancel
           </button>
-          {activeTab !== "order" ? (
+          {(isVideoMode ? activeTab !== "quiz" : activeTab !== "order") ? (
             <button
               onClick={handleNext}
               className="px-6 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition focus:ring-4 focus:ring-blue-200"
@@ -579,12 +593,6 @@ const CreateCourse = () => {
         </div>
       </div>
 
-      {showLayoutPreview && (
-        <ChapterPreview
-          layout={courseData.layout}
-          onClose={() => setShowLayoutPreview(false)}
-        />
-      )}
     </div>
   );
 };

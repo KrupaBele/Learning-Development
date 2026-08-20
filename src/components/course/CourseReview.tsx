@@ -32,21 +32,21 @@ const CourseReview = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [rejectionComment, setRejectionComment] = useState('');
-  const [selectedChapter, setSelectedChapter] = useState(null);
+  const [selectedChapter, setSelectedChapter] = useState<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingChapter, setEditingChapter] = useState(null);
+  const [editingChapter, setEditingChapter] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [courseData, setCourseData] = useState(null);
-  const [token, setToken] = useState(null);
-  const [isApproving, setIsApproving] = useState(null);
-  const [isRejecting, setIsRejecting] = useState(null);
+  const [courseData, setCourseData] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const courseImageRef = useRef(null);
-  const chapterImageRef = useRef(null);
-  const chapterAudioRef = useRef(null);
-  const audioRef = useRef(null);
+  const courseImageRef = useRef<HTMLInputElement>(null);
+  const chapterImageRef = useRef<HTMLInputElement>(null);
+  const chapterAudioRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -55,7 +55,7 @@ const CourseReview = () => {
       try {
         const token = await login();
         setToken(token);
-        const moduleData = await getModuleByIdAdmin(token, id);
+        const moduleData = await getModuleByIdAdmin(token, id!);
         console.log(moduleData, "moduleData");
         setCourseData(moduleData);
       } catch (error) {
@@ -65,86 +65,86 @@ const CourseReview = () => {
     fetchCourseData();
   }, [id]);
 
-  const handleCourseImageChange = async (e) => {
+  const handleCourseImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
         const uploadResponse = await uploadImage(file);
         console.log(uploadResponse, "upload response");
-        setCourseData((prev) => ({ ...prev, imgUrl: uploadResponse.fileUrl }));
+        setCourseData((prev: any) => ({ ...prev, imgUrl: uploadResponse.fileUrl }));
       } catch (error) {
         console.error('Image upload failed:', error);
       }
     }
   };
 
-  const handleChapterImageChange = async (e) => {
+  const handleChapterImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && editingChapter) {
       try {
         const uploadResponse = await uploadImage(file);
-        setEditingChapter((prev) => ({
+        setEditingChapter((prev: any) => ({
           ...prev,
           content: { ...prev.content, imgUrl: uploadResponse.fileUrl },
         }));
-        setSelectedChapter((prev) => ({
+        setSelectedChapter((prev: any) => ({
           ...prev,
           content: { ...prev.content, imgUrl: uploadResponse.fileUrl },
         }));
 
-        const updatedChapters = courseData?.chapters.map((ch) => {
+        const updatedChapters = courseData?.chapters.map((ch: any) => {
           if (ch.id === editingChapter.id) {
             return { ...ch, content: { ...ch.content, imgUrl: uploadResponse.fileUrl } };
           }
           return ch;
         });
 
-        setCourseData((prev) => ({ ...prev, chapters: updatedChapters }));
+        setCourseData((prev: any) => ({ ...prev, chapters: updatedChapters }));
       } catch (error) {
         console.error('Chapter image upload failed:', error);
       }
     }
   };
 
-  const handleChapterAudioChange = async (e) => {
+  const handleChapterAudioChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && editingChapter) {
       try {
         const uploadResponse = await uploadImage(file);
-        setEditingChapter((prev) => ({
+        setEditingChapter((prev: any) => ({
           ...prev,
           content: { ...prev.content, audioUrl: uploadResponse.fileUrl },
         }));
-        setSelectedChapter((prev) => ({
+        setSelectedChapter((prev: any) => ({
           ...prev,
           content: { ...prev.content, audioUrl: uploadResponse.fileUrl },
         }));
 
-        const updatedChapters = courseData?.chapters.map((ch) => {
+        const updatedChapters = courseData?.chapters.map((ch: any) => {
           if (ch.id === editingChapter.id) {
             return { ...ch, content: { ...ch.content, audioUrl: uploadResponse.fileUrl } };
           }
           return ch;
         });
 
-        setCourseData((prev) => ({ ...prev, chapters: updatedChapters }));
+        setCourseData((prev: any) => ({ ...prev, chapters: updatedChapters }));
       } catch (error) {
         console.error('Chapter audio upload failed:', error);
       }
     }
   };
 
-  const handleEditChapter = (chapter) => {
+  const handleEditChapter = (chapter: any) => {
     const sanitizedDescription = DOMPurify.sanitize(chapter.description || '');
     setEditingChapter({ ...chapter, description: sanitizedDescription });
     setShowEditModal(true);
   };
 
   const handleSaveChapterEdit = async () => {
-    let updatedData = [];
+    let updatedData: any = {};
     if (token) {
       if (editingChapter) {
-        const updatedChapters = courseData?.chapters.map((ch) =>
+        const updatedChapters = courseData?.chapters.map((ch: any) =>
           ch.id === editingChapter.id ? editingChapter : ch
         );
         updatedData = { ...courseData, chapters: updatedChapters };
@@ -152,7 +152,7 @@ const CourseReview = () => {
         updatedData = courseData;
       }
       try {
-        await updateModulebyAdmin(token, id, updatedData);
+        await updateModulebyAdmin(token, id!, updatedData);
         setCourseData(updatedData);
         setShowEditModal(false);
         setEditingChapter(null);
@@ -165,27 +165,27 @@ const CourseReview = () => {
     }
   };
 
-  const handleEditField = (field, value) => {
-    setCourseData((prev) => ({
+  const handleEditField = (field: string, value: any) => {
+    setCourseData((prev: any) => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleEditLearningOutcome = (index, value) => {
-    const newOutcomes = [...courseData?.learningOutcomes];
-    newOutcomes[index] = value;
-    setCourseData((prev) => ({
-      ...prev,
-      learningOutcomes: newOutcomes
-    }));
-  };
+  // const handleEditLearningOutcome = (index, value) => {
+  //   const newOutcomes = [...courseData?.learningOutcomes];
+  //   newOutcomes[index] = value;
+  //   setCourseData((prev) => ({
+  //     ...prev,
+  //     learningOutcomes: newOutcomes
+  //   }));
+  // };
 
   const handleApprove = async () => {
     console.log(id, " courseId ");
-    setIsApproving(id);
+    setIsApproving(id!);
     try {
-      const response = await updateCourseStatus(token, id, "published");
+      const response = await updateCourseStatus(token!, id!, "published");
       console.log("Course status updated to published:", response);
     } catch (error) {
       console.error("Error updating course status:", error);
@@ -198,9 +198,9 @@ const CourseReview = () => {
   const handleReject = async () => {
     if (!rejectionComment.trim()) return;
     console.log('Course rejected:', id, 'Comment:', rejectionComment);
-    setIsApproving(id);
+    setIsApproving(id !);
     try {
-      const response = await updateCourseStatus(token, id, "rejected");
+      const response = await updateCourseStatus(token!, id!, "rejected");
       console.log("Course status updated to rejected:", response);
     } catch (error) {
       console.error("Error updating course status:", error);
@@ -210,21 +210,21 @@ const CourseReview = () => {
     }
   };
 
-  const handleChapterSelect = (chapter) => {
+  const handleChapterSelect = (chapter: any) => {
     console.log(chapter, "chapter");
     setSelectedChapter(chapter);
     setActiveTab('content');
   };
 
   const handleNextChapter = () => {
-    const currentIndex = courseData?.chapters.findIndex(ch => ch.id === selectedChapter?.id);
+    const currentIndex = courseData?.chapters.findIndex((ch: any) => ch.id === selectedChapter?.id);
     if (currentIndex < courseData?.chapters.length - 1) {
       setSelectedChapter(courseData?.chapters[currentIndex + 1]);
     }
   };
 
   const handlePreviousChapter = () => {
-    const currentIndex = courseData?.chapters.findIndex(ch => ch.id === selectedChapter?.id);
+    const currentIndex = courseData?.chapters.findIndex((ch: any) => ch.id === selectedChapter?.id);
     if (currentIndex > 0) {
       setSelectedChapter(courseData?.chapters[currentIndex - 1]);
     }
@@ -250,6 +250,28 @@ const CourseReview = () => {
 
   const renderContent = () => {
     console.log(selectedChapter, "selectedchapter");
+
+    // Video mode: show the module-level video instead of chapters
+    if (courseData?.moduleType === "video") {
+      return (
+        <div className="p-8 space-y-6">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Module Video</h2>
+          {courseData?.videoUrl ? (
+            <video
+              src={courseData.videoUrl}
+              controls
+              controlsList="nodownload"
+              className="w-full rounded-xl bg-black max-h-[540px]"
+            />
+          ) : (
+            <div className="p-12 text-center text-gray-400 border border-dashed border-gray-300 dark:border-dark-600 rounded-xl">
+              No video uploaded for this module.
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (!selectedChapter) {
       return (
         <>
@@ -260,7 +282,7 @@ const CourseReview = () => {
           <div className="mt-8 bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 p-6">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Chapters</h2>
             <div className="space-y-4">
-              {courseData?.chapters.map((chapter) => (
+              {courseData?.chapters.map((chapter: any) => (
                 <div
                   key={chapter.id}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition"
@@ -402,7 +424,7 @@ const CourseReview = () => {
         <div className="mt-8 bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 p-6">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Chapters</h2>
           <div className="space-y-4">
-            {courseData?.chapters.map((chapter) => (
+            {courseData?.chapters.map((chapter: any) => (
               <div
                 key={chapter.id}
                 className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition"
@@ -630,12 +652,12 @@ const CourseReview = () => {
 
           <TabsContent value="quizzes">
             <div className="p-8 space-y-6">
-              {courseData?.questions?.map((quiz, index) => (
+              {courseData?.questions?.map((quiz: any, index: number) => (
                 <div key={index} className="bg-gray-50 dark:bg-dark-800 rounded-lg p-6">
                   <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{quiz.title}</h2>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{quiz.question}</h3>
                   <div className="space-y-3">
-                    {quiz.options.map((option, optionIndex) => (
+                    {quiz.options.map((option: any, optionIndex: number) => (
                       <div
                         key={optionIndex}
                         className={`p-4 rounded-lg border ${

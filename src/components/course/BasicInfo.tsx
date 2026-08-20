@@ -7,9 +7,12 @@ import {
   SpellCheck,
   BookOpen,
   Wand2,
+  Video,
+  FileVideo,
+  Layers,
 } from "lucide-react";
 //@ts-ignore
-import { uploadImage } from "../../utils/api.js";
+import { uploadImage, uploadVideo } from "../../utils/api.js";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import toast, { Toaster } from "react-hot-toast";
@@ -42,6 +45,10 @@ const BasicInfo = ({ data, onUpdate }: any) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const imageInputRef = useRef(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState(data.videoUrl || "");
 
   const quillRef = useRef<ReactQuill & { getEditor: () => any }>(null);
 
@@ -64,6 +71,55 @@ const BasicInfo = ({ data, onUpdate }: any) => {
   useEffect(() => {
     setImagePreview(data.image || "");
   }, [data.image]);
+
+  useEffect(() => {
+    setVideoPreviewUrl(data.videoUrl || "");
+  }, [data.videoUrl]);
+
+  const handleModeToggle = (mode: "video" | "chapter") => {
+    onUpdate({ moduleType: mode });
+  };
+
+  const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      "video/mp4", "video/webm", "video/quicktime",
+      "video/x-msvideo", "video/x-matroska", "video/avi",
+    ];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
+      toast.error("Unsupported file format. Please upload MP4, WebM, MOV, AVI, or MKV.");
+      return;
+    }
+
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("Video size must be under 500MB.");
+      return;
+    }
+
+    setIsUploadingVideo(true);
+    setVideoUploadProgress(0);
+    try {
+      const uploadResponse = await uploadVideo(file, (percent: number) => {
+        setVideoUploadProgress(percent);
+      });
+      setVideoPreviewUrl(uploadResponse.fileUrl);
+      onUpdate({ videoUrl: uploadResponse.fileUrl });
+      toast.success("Video uploaded successfully!");
+    } catch (error) {
+      toast.error("Video upload failed. Please try again.");
+    } finally {
+      setIsUploadingVideo(false);
+      setVideoUploadProgress(0);
+    }
+  };
+
+  const handleRemoveVideo = () => {
+    setVideoPreviewUrl("");
+    onUpdate({ videoUrl: "" });
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
 
   const handleChange = (e: any) => {
     if (e.target) {
@@ -467,6 +523,51 @@ const BasicInfo = ({ data, onUpdate }: any) => {
   return (
     <div className="space-y-10 p-6 bg-gray-50 dark:bg-dark-800 rounded-lg">
       <Toaster position="top-center" />
+
+      {/* Training Mode Toggle */}
+      <div>
+        <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
+          Training Mode
+        </label>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => handleModeToggle("chapter")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+              (data.moduleType || "chapter") === "chapter"
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                : "border-gray-300 dark:border-dark-700 bg-white dark:bg-dark-800 text-gray-600 dark:text-gray-400 hover:border-gray-400"
+            }`}
+          >
+            <Layers className="w-5 h-5" />
+            <div className="text-left">
+              <div className="font-medium text-sm">Chapter Mode</div>
+              <div className="text-xs opacity-70">Text, image &amp; audio per chapter</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeToggle("video")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+              data.moduleType === "video"
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                : "border-gray-300 dark:border-dark-700 bg-white dark:bg-dark-800 text-gray-600 dark:text-gray-400 hover:border-gray-400"
+            }`}
+          >
+            <Video className="w-5 h-5" />
+            <div className="text-left">
+              <div className="font-medium text-sm">Video Mode</div>
+              <div className="text-xs opacity-70">Single video for full module</div>
+            </div>
+          </button>
+        </div>
+        {data.moduleType === "video" && (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            Training mode cannot be changed after the module is published.
+          </p>
+        )}
+      </div>
+
       <div>
         <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
           Course Title
@@ -589,6 +690,75 @@ const BasicInfo = ({ data, onUpdate }: any) => {
           </span>
         </label>
       </div>
+
+      {/* Video Upload — only shown in video mode */}
+      {data.moduleType === "video" && (
+        <div>
+          <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Module Video
+          </label>
+          <div className="mt-1 border-2 border-gray-300 dark:border-dark-700 border-dashed rounded-lg bg-white dark:bg-dark-800 p-6">
+            {videoPreviewUrl ? (
+              <div className="space-y-3">
+                <video
+                  src={videoPreviewUrl}
+                  controls
+                  className="w-full max-h-64 rounded-lg bg-black"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                    {videoPreviewUrl.split("/").pop()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveVideo}
+                    className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                {isUploadingVideo ? (
+                  <div className="space-y-3">
+                    <FileVideo className="mx-auto h-12 w-12 text-blue-400 animate-pulse" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Uploading video...</p>
+                    <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${videoUploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-xs font-medium text-blue-600">{videoUploadProgress}%</p>
+                  </div>
+                ) : (
+                  <>
+                    <FileVideo className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-3 flex items-center justify-center gap-1 text-sm">
+                      <label className="cursor-pointer font-medium text-blue-600 hover:text-blue-500">
+                        <span>Upload a video</span>
+                        <input
+                          ref={videoInputRef}
+                          type="file"
+                          className="sr-only"
+                          accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
+                          onChange={handleVideoChange}
+                          disabled={isUploadingVideo}
+                        />
+                      </label>
+                      <span className="text-gray-500">or drag and drop</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      MP4, WebM, MOV, AVI, MKV — up to 500MB
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
