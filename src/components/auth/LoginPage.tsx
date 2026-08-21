@@ -54,7 +54,9 @@ const LoginPage = () => {
             navigate("/reset-password");
           } else if (user.role === "EMPLOYEE" && !user.isFirstLogin) {
             navigate("/employee");
-          } else if (user.role === "MANAGER") {
+          } else if (user.role === "MANAGER" && user.isFirstLogin) {
+            navigate("/reset-password");
+          } else if (user.role === "MANAGER" && !user.isFirstLogin) {
             navigate("/hr");
           } else if (user.role === "SUPER_ADMIN") {
             navigate("/admin/dashboard");

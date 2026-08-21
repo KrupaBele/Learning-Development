@@ -21,7 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 //@ts-ignore
-import { uploadImage } from "../../utils/api.js";
+import { uploadImage, uploadVideo } from "../../utils/api.js";
 import {
   ChapterLayoutSelector,
   ChapterPreview,
@@ -111,8 +111,45 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
     duration: "",
     image: "",
     audio: "",
+    video: "",
     layout: "",
   });
+
+  const isVideoLayout = ["video-top", "video-left", "video-right"].includes(
+    chapterLayouts.find((l) => l.name === newChapter.layout)?.id || ""
+  );
+
+  const chapterVideoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingChapterVideo, setIsUploadingChapterVideo] = useState(false);
+  const [chapterVideoUploadProgress, setChapterVideoUploadProgress] = useState(0);
+
+  const handleChapterVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["video/mp4","video/webm","video/quicktime","video/x-msvideo","video/x-matroska","video/avi"];
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
+      toast.error("Unsupported format. Please upload MP4, WebM, MOV, AVI, or MKV.");
+      return;
+    }
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("Video size must be under 500MB.");
+      return;
+    }
+    setIsUploadingChapterVideo(true);
+    setChapterVideoUploadProgress(0);
+    try {
+      const uploadResponse = await uploadVideo(file, (percent: number) => {
+        setChapterVideoUploadProgress(percent);
+      });
+      setNewChapter((prev) => ({ ...prev, video: uploadResponse.fileUrl }));
+      toast.success("Video uploaded successfully!");
+    } catch {
+      toast.error("Video upload failed. Please try again.");
+    } finally {
+      setIsUploadingChapterVideo(false);
+      setChapterVideoUploadProgress(0);
+    }
+  };
 
   const [editingChapterId, setEditingChapterId] = useState(null);
   console.log(editingChapterId);
@@ -128,8 +165,8 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
   const [isAddingSubChapter, setIsAddingSubChapter] = useState(false);
   const [parentChapterId, setParentChapterId] = useState<string | null>(null);
 
-  const imageInputRef = useRef(null);
-  const audioInputRef = useRef(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const quillRef = useRef<ReactQuill & { getEditor: () => any }>(null);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -192,6 +229,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                 content: {
                   imgUrl: newChapter.image || "",
                   audioUrl: newChapter.audio || "",
+                  videoUrl: newChapter.video || "",
                 },
                 layout: newChapter.layout,
               };
@@ -213,6 +251,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                         content: {
                           imgUrl: newChapter.image || "",
                           audioUrl: newChapter.audio || "",
+                          videoUrl: newChapter.video || "",
                         },
                         layout: newChapter.layout,
                       }
@@ -238,6 +277,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
           content: {
             imgUrl: newChapter.image || "",
             audioUrl: newChapter.audio || "",
+            videoUrl: newChapter.video || "",
           },
           layout: newChapter.layout,
         };
@@ -274,6 +314,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
               content: {
                 imgUrl: newChapter.image || "",
                 audioUrl: newChapter.audio || "",
+                videoUrl: newChapter.video || "",
               },
               layout: newChapter.layout,
               subChapters: [],
@@ -289,6 +330,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
         duration: "",
         image: "",
         audio: "",
+        video: "",
         layout: "",
       });
     } else {
@@ -327,6 +369,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
         duration: "",
         image: "",
         audio: "",
+        video: "",
         layout: "",
       });
     }
@@ -385,6 +428,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
       duration: chapterToEdit.duration || "",
       image: chapterToEdit.content?.imgUrl || "",
       audio: chapterToEdit.content?.audioUrl || "",
+      video: chapterToEdit.content?.videoUrl || "",
       layout: chapterToEdit.layout || chapterToEdit.template || "",
     };
 
@@ -406,6 +450,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
       duration: "",
       image: "",
       audio: "",
+      video: "",
       layout: "",
     });
   };
@@ -1197,9 +1242,7 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                   }}
                   value={newChapter.content}
                   onChange={(value) => {
-                    // Ensure we're properly handling HTML content
-                    const cleanedValue = DOMPurify.sanitize(value);
-                    setNewChapter({ ...newChapter, content: cleanedValue });
+                    setNewChapter((prev) => ({ ...prev, content: value }));
                   }}
                   theme="snow"
                   className="w-full border-gray-300 dark:border-dark-700 rounded-lg  dark:bg-dark-800 text-gray-900 dark:text-white"
@@ -1286,6 +1329,62 @@ const ChapterCreation = ({ chapters, onUpdate }: any) => {
                   )}
                 </div>
               </div>
+              {/* Video Upload — shown when a video layout is selected */}
+              {isVideoLayout && (
+                <div>
+                  <label className="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Chapter Video
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 p-5">
+                    {newChapter.video ? (
+                      <div className="space-y-2">
+                        <video
+                          src={newChapter.video}
+                          controls
+                          className="w-full max-h-48 rounded-lg bg-black"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewChapter((prev) => ({ ...prev, video: "" }));
+                            if (chapterVideoInputRef.current) chapterVideoInputRef.current.value = "";
+                          }}
+                          className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" /> Remove video
+                        </button>
+                      </div>
+                    ) : isUploadingChapterVideo ? (
+                      <div className="space-y-3 text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Uploading video...</p>
+                        <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2.5">
+                          <div
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                            style={{ width: `${chapterVideoUploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-xs font-medium text-blue-600">{chapterVideoUploadProgress}%</p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <label className="cursor-pointer font-medium text-sm text-blue-600 hover:text-blue-500">
+                          <span>Upload a video</span>
+                          <input
+                            ref={chapterVideoInputRef}
+                            type="file"
+                            className="sr-only"
+                            accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
+                            onChange={handleChapterVideoChange}
+                            disabled={isUploadingChapterVideo}
+                          />
+                        </label>
+                        <p className="text-xs text-gray-400 mt-1">MP4, WebM, MOV, AVI, MKV up to 500MB</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Layout Selection */}
               {/* <div className="space-y-2">
                 <label className="block text-md font-medium text-gray-700 dark:text-gray-300">

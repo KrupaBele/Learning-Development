@@ -11,6 +11,7 @@ import {
   ChevronRight,
   X,
   Text,
+  Video as VideoIcon,
 } from "lucide-react";
 
 export type ChapterLayout = {
@@ -109,6 +110,30 @@ export const chapterLayouts: ChapterLayout[] = [
     preview:
       "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800&auto=format&fit=crop&q=60",
     icon: <Text className="w-5 h-5 text-gray-400" />,
+  },
+  {
+    id: "video-top",
+    name: "Video Top",
+    description: "Full-width video at the top with title and content below",
+    preview:
+      "https://images.unsplash.com/photo-1536240478700-b869ad10a2ab?w=800&auto=format&fit=crop&q=60",
+    icon: <VideoIcon className="w-5 h-5 text-blue-500" />,
+  },
+  {
+    id: "video-left",
+    name: "Video Left",
+    description: "Video on the left half with title and content on the right",
+    preview:
+      "https://images.unsplash.com/photo-1536240478700-b869ad10a2ab?w=800&auto=format&fit=crop&q=60",
+    icon: <VideoIcon className="w-5 h-5 text-blue-500" />,
+  },
+  {
+    id: "video-right",
+    name: "Video Right",
+    description: "Video on the right half with title and content on the left",
+    preview:
+      "https://images.unsplash.com/photo-1536240478700-b869ad10a2ab?w=800&auto=format&fit=crop&q=60",
+    icon: <VideoIcon className="w-5 h-5 text-blue-500" />,
   },
 ];
 
@@ -704,6 +729,81 @@ export const ChapterContent: React.FC<ChapterContentProps> = ({
               <div className="text-3xl font-light text-center text-blue-100 leading-relaxed">
                 {renderContent()}
               </div>
+            </div>
+          </div>
+        );
+
+      case "video-top":
+        return (
+          <div className="min-h-[600px]">
+            {video ? (
+              <div className="relative bg-black">
+                <video
+                  src={video}
+                  controls
+                  controlsList="nodownload"
+                  className="w-full max-h-[420px] object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-dark-700 text-gray-400 gap-2">
+                <VideoIcon className="w-6 h-6" />
+                <span className="text-sm">No video uploaded</span>
+              </div>
+            )}
+            <div className="max-w-4xl mx-auto p-8">
+              {renderTitle()}
+              {renderContent()}
+            </div>
+          </div>
+        );
+
+      case "video-left":
+        return (
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
+            <div className="lg:w-1/2 bg-black flex items-center">
+              {video ? (
+                <video
+                  src={video}
+                  controls
+                  controlsList="nodownload"
+                  className="w-full max-h-[500px] object-contain"
+                />
+              ) : (
+                <div className="flex items-center justify-center w-full h-48 text-gray-400 gap-2">
+                  <VideoIcon className="w-6 h-6" />
+                  <span className="text-sm">No video uploaded</span>
+                </div>
+              )}
+            </div>
+            <div className="lg:w-1/2 p-8">
+              {renderTitle()}
+              {renderContent()}
+            </div>
+          </div>
+        );
+
+      case "video-right":
+        return (
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
+            <div className="lg:w-1/2 p-8">
+              {renderTitle()}
+              {renderContent()}
+            </div>
+            <div className="lg:w-1/2 bg-black flex items-center">
+              {video ? (
+                <video
+                  src={video}
+                  controls
+                  controlsList="nodownload"
+                  className="w-full max-h-[500px] object-contain"
+                />
+              ) : (
+                <div className="flex items-center justify-center w-full h-48 text-gray-400 gap-2">
+                  <VideoIcon className="w-6 h-6" />
+                  <span className="text-sm">No video uploaded</span>
+                </div>
+              )}
             </div>
           </div>
         );

@@ -122,6 +122,7 @@ const TrainingDetails = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [watchedPercent, setWatchedPercent] = useState(0);
   const [videoQuizUnlocked, setVideoQuizUnlocked] = useState(false);
+  const [videoExpanded, setVideoExpanded] = useState(false);
   const VIDEO_WATCH_THRESHOLD = 80;
 
   // Certificate state
@@ -662,77 +663,135 @@ const TrainingDetails = () => {
             </div>
           )}
 
-          {/* Video player */}
-          {trainingDetails?.videoUrl ? (
-            <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
-              <video
-                ref={videoRef}
-                src={trainingDetails.videoUrl}
-                controls
-                controlsList="nodownload"
-                onTimeUpdate={handleVideoTimeUpdate}
-                className="w-full max-h-[520px] bg-black"
-              />
-              {/* Watch progress bar */}
-              <div className="px-6 py-4 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Watch progress</span>
-                  <span className={`font-medium ${
-                    videoQuizUnlocked ? "text-green-600" : "text-blue-600"
-                  }`}>
-                    {watchedPercent}% watched
-                  </span>
+          {/* Course Content list */}
+          <div className="p-8 space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Course Content</h2>
+
+            {/* Video row — click opens full player */}
+            <div
+              className="bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition cursor-pointer overflow-hidden"
+              onClick={() => trainingDetails?.videoUrl && setActiveTab("content")}
+            >
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">{trainingDetails?.title}</h3>
+                    {trainingDetails?.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                        {trainingDetails.description.replace(/<[^>]*>/g, '')}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      videoQuizUnlocked ? "bg-green-500" : "bg-blue-600"
-                    }`}
-                    style={{ width: `${watchedPercent}%` }}
-                  />
+                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" />
+              </div>
+            </div>
+
+            {/* Quiz rows */}
+            {trainingDetails?.questions?.map((quiz: any, index: number) => (
+              <div
+                key={quiz._id || index}
+                className={`rounded-lg overflow-hidden border transition ${
+                  videoQuizUnlocked
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 cursor-pointer'
+                    : 'bg-gray-50 dark:bg-dark-700 border-gray-200 dark:border-dark-600 cursor-not-allowed opacity-60'
+                }`}
+                onClick={() => {
+                  if (videoQuizUnlocked) {
+                    setActiveTab("content");
+                    setQuestionPanel("overview");
+                    setSelectedChapter(null);
+                    setSelectedSubChapter(null);
+                    fetchQuestion(quiz._id);
+                  }
+                }}
+              >
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    {videoQuizUnlocked
+                      ? <PlayCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                      : <Lock className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    }
+                    <div>
+                      <h3 className="font-medium text-gray-900 dark:text-white">
+                        Quiz: {quiz.title || `Question ${index + 1}`}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        {videoQuizUnlocked ? 'Tap to open this quiz' : `Unlocks after watching ${VIDEO_WATCH_THRESHOLD}% of the video`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {!videoQuizUnlocked && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Watch at least {VIDEO_WATCH_THRESHOLD}% to unlock the quiz
-                  </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : isVideoMode && activeTab === "content" && !question ? (
+        /* Video mode — full-width player */
+        <div className="space-y-4">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-white"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+          <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-100 dark:border-dark-700 overflow-hidden">
+            <video
+              ref={videoRef}
+              src={trainingDetails?.videoUrl}
+              controls
+              controlsList="nodownload"
+              onTimeUpdate={handleVideoTimeUpdate}
+              className="w-full bg-black"
+            />
+            <div className="px-6 py-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Watch progress</span>
+                <span className={`font-medium ${videoQuizUnlocked ? "text-green-600" : "text-blue-600"}`}>
+                  {watchedPercent}% watched
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${videoQuizUnlocked ? "bg-green-500" : "bg-blue-600"}`}
+                  style={{ width: `${watchedPercent}%` }}
+                />
+              </div>
+              {!videoQuizUnlocked && (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Watch at least {VIDEO_WATCH_THRESHOLD}% to unlock the quiz
+                </p>
+              )}
+            </div>
+            {trainingDetails?.questions?.length > 0 && (
+              <div className="px-6 pb-6">
+                {videoQuizUnlocked ? (
+                  <button
+                    onClick={handleStartVideoQuiz}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                  >
+                    <PlayCircle className="w-5 h-5" />
+                    Start Quiz
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full py-3 bg-gray-200 dark:bg-dark-700 text-gray-400 dark:text-gray-500 font-semibold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Quiz unlocks at {VIDEO_WATCH_THRESHOLD}% watched
+                  </button>
                 )}
               </div>
-
-              {/* Quiz unlock CTA */}
-              <div className="px-6 pb-6">
-                {trainingDetails?.questions?.length > 0 ? (
-                  videoQuizUnlocked ? (
-                    <button
-                      onClick={handleStartVideoQuiz}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
-                    >
-                      <PlayCircle className="w-5 h-5" />
-                      Start Quiz
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full py-3 bg-gray-200 dark:bg-dark-700 text-gray-400 dark:text-gray-500 font-semibold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed"
-                    >
-                      <Lock className="w-4 h-4" />
-                      Quiz unlocks at {VIDEO_WATCH_THRESHOLD}% watched
-                    </button>
-                  )
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-dark-800 rounded-xl p-12 text-center text-gray-400">
-              Video is being processed. Please check back soon.
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : isVideoMode && activeTab === "content" ? (
         /* Video mode quiz panel — reuses the same question UI */
         <>
           <button
             onClick={() => {
-              setActiveTab("overview");
               setQuestion(null);
             }}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-white mb-2"
@@ -1043,6 +1102,7 @@ const TrainingDetails = () => {
                     content={selectedSubChapter.description}
                     image={selectedSubChapter.content.imgUrl}
                     audio={selectedSubChapter.content.audioUrl}
+                    video={selectedSubChapter.content.videoUrl}
                   />
                 ) : selectedChapter ? (
                   <ChapterContent
@@ -1053,6 +1113,7 @@ const TrainingDetails = () => {
                     content={selectedChapter.description}
                     image={selectedChapter.content.imgUrl}
                     audio={selectedChapter.content.audioUrl}
+                    video={selectedChapter.content.videoUrl}
                   />
                 ) : (
                   <div className="w-1/2 p-8 border-r border-gray-100 dark:border-dark-700 overflow-y-auto bg-white dark:bg-dark-800 rounded-xl shadow-sm">

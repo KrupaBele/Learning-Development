@@ -49,6 +49,7 @@ const CourseReview = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [videoExpanded, setVideoExpanded] = useState(false);
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -251,21 +252,88 @@ const CourseReview = () => {
   const renderContent = () => {
     console.log(selectedChapter, "selectedchapter");
 
-    // Video mode: show the module-level video instead of chapters
+    // Video mode: chapter-list style card that expands to show the video
     if (courseData?.moduleType === "video") {
       return (
         <div className="p-8 space-y-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Module Video</h2>
-          {courseData?.videoUrl ? (
-            <video
-              src={courseData.videoUrl}
-              controls
-              controlsList="nodownload"
-              className="w-full rounded-xl bg-black max-h-[540px]"
-            />
-          ) : (
-            <div className="p-12 text-center text-gray-400 border border-dashed border-gray-300 dark:border-dark-600 rounded-xl">
-              No video uploaded for this module.
+          {/* Video card — collapsed/expanded */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Content</h2>
+            <div className="bg-gray-50 dark:bg-dark-700 rounded-xl border border-gray-100 dark:border-dark-600 overflow-hidden">
+              {/* Card header — always visible, click to toggle */}
+              <button
+                type="button"
+                onClick={() => courseData?.videoUrl && setVideoExpanded((v) => !v)}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-dark-600 transition text-left"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                    <PlayCircle className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">{courseData?.title}</h3>
+                    {courseData?.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1 max-w-xl">
+                        {courseData.description.replace(/<[^>]*>/g, '')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  {!courseData?.videoUrl && (
+                    <span className="text-xs text-gray-400">No video</span>
+                  )}
+                  <ChevronRight
+                    className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                      videoExpanded ? 'rotate-90' : ''
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {/* Expanded player */}
+              {videoExpanded && courseData?.videoUrl && (
+                <div className="border-t border-gray-100 dark:border-dark-600 bg-black">
+                  <video
+                    src={courseData.videoUrl}
+                    controls
+                    controlsList="nodownload"
+                    className="w-full max-h-[540px] object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quizzes inline */}
+          {courseData?.questions?.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Quizzes</h2>
+              {courseData.questions.map((quiz: any, index: number) => (
+                <div key={index} className="bg-gray-50 dark:bg-dark-700 rounded-xl border border-gray-100 dark:border-dark-600 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400 mb-1">
+                    {quiz.title}
+                  </p>
+                  <h3 className="font-medium text-gray-900 dark:text-white mb-3">{quiz.question}</h3>
+                  <div className="space-y-2">
+                    {quiz.options.map((option: any, optionIndex: number) => (
+                      <div
+                        key={optionIndex}
+                        className={`flex items-center p-3 rounded-lg border ${
+                          quiz.answer.includes(String(option))
+                            ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700'
+                            : 'bg-white dark:bg-dark-800 border-gray-200 dark:border-dark-700'
+                        }`}
+                      >
+                        {quiz.answer.includes(String(option)) && (
+                          <CheckCircle className="w-4 h-4 text-green-500 mr-2 shrink-0" />
+                        )}
+                        <span className="text-sm text-gray-900 dark:text-white">{option}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -343,18 +411,28 @@ const CourseReview = () => {
 
           {/* Media Panel */}
           <div className="w-1/2 flex flex-col">
-            {/* Image Container */}
+            {/* Image / Video Container */}
             <div className="relative flex-1 bg-gray-900">
-              <img
-                src={selectedChapter.content.imgUrl}
-                alt={selectedChapter.title}
-                className="w-full h-full object-cover"
-              />
+              {selectedChapter.content.videoUrl ? (
+                <video
+                  src={selectedChapter.content.videoUrl}
+                  controls
+                  controlsList="nodownload"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <img
+                  src={selectedChapter.content.imgUrl}
+                  alt={selectedChapter.title}
+                  className="w-full h-full object-cover"
+                />
+              )}
 
               {/* Audio Element (Hidden) */}
               <audio ref={audioRef} src={selectedChapter.content.audioUrl} />
 
-              {/* Media Controls */}
+              {/* Media Controls — only for image+audio chapters, not video (native controls handle it) */}
+              {!selectedChapter.content.videoUrl && (
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
                 <div className="flex items-center justify-between text-white">
                   <div className="flex items-center space-x-4">
@@ -395,6 +473,7 @@ const CourseReview = () => {
                   </div>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Chapter Navigation */}
